@@ -12,6 +12,7 @@ import jade.wrapper.StaleProxyException;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 import javax.swing.*;
@@ -42,6 +43,9 @@ public class ProjectController extends Agent {
 	String ProjectClass = "agentTest.CtrlAgent", nameAgent = "SuperController";
 	ContainerController containerController;
 	AgentController taskAgentController, resAgentController;
+	private MessagesToSend sendQueue = new MessagesToSend();
+	private ArrayList<ProjectDesc> projects = new ArrayList<>();
+	
 	private void sendMes(String reciever, String msg) {
 		ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
 		mes.addReceiver(new AID(reciever, AID.ISGUID));
@@ -51,7 +55,7 @@ public class ProjectController extends Agent {
 	private void printReport(String msg) {
 		System.out.println(getAID().getLocalName() + ": "+ msg);
 	}
-	private String genJobName(int agNum) {
+	private String genProjName(int agNum) {
 		return ("Project"+agNum+"Controller");
 	} 
 	
@@ -65,9 +69,12 @@ public class ProjectController extends Agent {
 				//System.out.println("Button has been hit!");
 				
 				try {
-					resAgentController = containerController.createNewAgent(genJobName(++projectsNum),ProjectClass ,new String[]{myAgent.getAID().getName(),fileName.getText() ,(projectsNum).toString()});
+					String proj = genProjName(++projectsNum);
+					resAgentController = containerController.createNewAgent(proj, ProjectClass ,new String[]{myAgent.getAID().getName(),fileName.getText() ,(projectsNum).toString()});
 					resAgentController.start();
 					printReport(resAgentController.getName() + " created.");
+					//if successfully created agent then add its descriptor.
+					projects.add(new ProjectDesc(proj,fileName.getText()));
 					fileName.setText("No File Selected!");
 				}
 				catch(StaleProxyException e) {
