@@ -13,7 +13,10 @@ import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 
 public class TaskAgentRewrite extends Agent {
-	
+	/**
+	 * @param reciever - global JADE agent name
+	 * @param msg - message content to send
+	 */
 	private void sendmes(String reciever, String msg) {
 		ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
 		mes.addReceiver(new AID(reciever, AID.ISGUID));
@@ -57,6 +60,8 @@ public class TaskAgentRewrite extends Agent {
 	private int rsendingnow = 0, rsendfinish = -1; //sendlist backwards
 	private boolean initialFinished = false; //indicator that we have forgone initial boundaries establishment
 	
+	private MessagesToSend sendQueue = new MessagesToSend();
+	
 	Behaviour StopSendingFinish = new OneShotBehaviour() {
 		@Override
 		public void action() {
@@ -76,11 +81,25 @@ public class TaskAgentRewrite extends Agent {
 			//send to next one
 			else {
 				String sendTo = next.get(sendingnow);
-				printReport("Sending to: "+ sendTo);
+				//printReport("Sending to: "+ sendTo);
 				sendmes(sendTo,"meaf "+earlyFinish);
 				sendingnow += 1;
 			}
 		}
+	};
+	
+	Behaviour SendingBehaviour = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ArrayList<String> next = sendQueue.getNextToSend();
+				
+				if (next.size()!=0) {
+					String sendTo = next.get(1),
+							message = next.get(0);	
+					//printReport("output "+ sendTo + " "+ message);
+					sendmes(sendTo,message);
+				}
+			}
 	};
 	
 	Behaviour StopSendingStart = new OneShotBehaviour() {
@@ -117,14 +136,19 @@ public class TaskAgentRewrite extends Agent {
 			msg = myAgent.receive();
 			//if there's any, process it
 			if (msg!=null) {
-				printReport("Message not null!");
+				String sender = (msg.getSender().getName());
+				//printReport("Message not null!");
 				String[] items = msg.getContent().split(" ");
 				switch (items[0].toString()){
-				case "srep":printReport("srep"); break;
-				case "meaf": printReport("meaf"); //MyEArlyFinish
+				case "srep":printReport("srep");{String message = "";// rept START FINISH
+				ArrayList<String> send = new ArrayList<>();
+				send.add(sender);
+				sendQueue.add(new SendingTask(send,"rept "+earlyFinish));
+				} break;
+				case "meaf": //printReport("meaf"); //MyEArlyFinish
 					{Integer l = Integer.parseInt(items[1]) + 1;
 						//add predecessor
-						String sender = (msg.getSender().getName());
+
 						if (findPredName(sender) == -1) {
 							//printReport("new predecessor! Name's: "+ sender);
 							prev.add(sender);
@@ -133,7 +157,9 @@ public class TaskAgentRewrite extends Agent {
 							//printReport("Early Start moved, sending messages. . .");
 							earlyStart = l;
 							earlyFinish = earlyStart + timeReq;
-							myAgent.addBehaviour(SendNewFinish);
+							//myAgent.addBehaviour(SendNewFinish); 
+							//sendmes(sendTo,"meaf "+earlyFinish);
+				 			sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
 						}
 					}; break;
 				case "meat": //MyEArlystarT
@@ -145,8 +171,30 @@ public class TaskAgentRewrite extends Agent {
 				 			myAgent.addBehaviour(SendNewStart);
 				 		}
 				 	};break;
-				case "mini": // we need to start two behaviours 1) send strt to all others 2) 
+				case "mini":{// we need to start two behaviours 1) send strt to all others 2) 
+						//Проблема - сообщения с нулями после начальной инициализации избыточны.
+						//Integer sendTo1 = Integer.parseInt(items[1]);
+						printReport("input "+ msg.getSender().getName() + " "+ msg.getContent());
+						ArrayList<String> send1 = new ArrayList<>(), send2 = new ArrayList<>(next);
+						send1.add(next.get(0));
+						send2.remove(0);
+						if (!initialFinished) {
+							//printReport("initiated!");
+							if (send2.size()!=0)//"mini 0" after initial transmission is unnecessary
+								sendQueue.add(new SendingTask(send2,"mini 0"));
+							initialFinished = true;//initial transmission has been made
+							//sendTo1++;
+							sendQueue.add(new SendingTask(send1,"mini 1"));
+						}
+						//sendQueue.add(new SendingTask(send1, "mini " + sendTo1));
+						sendQueue.add(new SendingTask(send1, msg.getContent()));
+				}
 					break;
+				case "remp": {
+
+					int i = findPredName(sender); 
+					if (i>-1) prev.remove(i);
+					};break;
 				default: printReport("else"); break;
 				}
 			}
@@ -158,12 +206,12 @@ public class TaskAgentRewrite extends Agent {
 		//First, we get arguments Those are for initial setup
 		//TaskName, numSuc, numRes,timeNeed SUCCESSORS, RESNAMES, RESVOLUMES 
 		Object args[] = getArguments();
-		int sucNum = Integer.parseInt(args[1].toString()),
-			resNum = Integer.parseInt(args[2].toString()),
-			sucStart = 4, resNmStart = sucStart + sucNum,  
+		int sucNum = Integer.parseInt(args[2].toString()),
+			resNum = Integer.parseInt(args[3].toString()),
+			sucStart = 5, resNmStart = sucStart + sucNum,  
 			resVolStart = resNmStart + resNum;
 			
-			timeReq = Integer.parseInt(args[3].toString());
+			timeReq = Integer.parseInt(args[4].toString()); 
 				//add successors
 				for (int i = 0; i<sucNum;i++) {
 					next.add(args[sucStart+i].toString());
@@ -174,7 +222,11 @@ public class TaskAgentRewrite extends Agent {
 					resReq.add(new Resource(args[resNmStart+i].toString(),Integer.parseInt(args[resVolStart+i].toString())));
 				}
 			sendfinish = next.size() - 1;	
-			this.addBehaviour(NextMSGProcess);	
+			//printReport("" + initialFinished + " " + args[0].toString());
+			sendmes(args[0].toString(),"stup");
+			this.addBehaviour(NextMSGProcess);
+			this.addBehaviour(SendingBehaviour);
+			//printReport("stup");
 			/*printReport("now I'll print which arguments were taken");	
 			//let's see which ones are there
 			System.out.println();

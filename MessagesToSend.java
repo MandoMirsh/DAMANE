@@ -37,7 +37,10 @@ public class MessagesToSend {
 				tasks.remove((int)sendFrom);
 			}
 		}
-		
+
 		return ret;
+	}
+	public void add(SendingTask onemore) {
+		tasks.add(onemore);
 	}
 }

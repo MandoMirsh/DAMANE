@@ -20,8 +20,10 @@ public class CtrlAgent extends Agent{
 
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
+	Integer initCounter = 0;
 	String resNames = "", resAvals = "", resAgentClass = "agentTest.ResourceAgent",
 			transmitterAgent = "agentTest.TransmitterAgent", jobAgentClass = "agentTest.TaskAgentRewrite";
+	String controller;
 	
 	boolean init = false;
 	Integer initJobs = 0;
@@ -207,13 +209,77 @@ public class CtrlAgent extends Agent{
 		return ret; 
 	}
 	
-	Behaviour  init1 = new OneShotBehaviour() {
+	Behaviour  init2 = new OneShotBehaviour() {
 		@Override
 		public void action() {
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meaf 0");
 		} 
 	};
-	//раздвоиться
+	Behaviour  init1 = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mini 0");
+		} 
+	};
+	Behaviour  StopInit0 = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			printReport("finished init!");
+			myAgent.removeBehaviour(init0);
+			initJobs = 0;
+			myAgent.addBehaviour(nextMsg);
+			myAgent.addBehaviour(init1);
+			sendMes(controller, "stup 0");
+		} 
+	};
+	Behaviour init0 = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			//getmessages
+			ACLMessage msg = receive();
+			if (msg !=null) {
+				//printReport(msg.getSender().getName() + " " + msg.getContent());
+				//String[] items = msg.getContent().split(" ");
+				switch (msg.getContent()) {
+				case "stup": {
+						initJobs++;
+						//printReport("" + initJobs);
+						if (initJobs == jobNum) {
+							myAgent.addBehaviour(StopInit0);
+						}
+					};
+				break;
+				}
+			}
+		} 
+	};
+	
+	Behaviour nextMsg = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ACLMessage msg = receive();
+			if (msg!=null) {
+				String sender = (msg.getSender().getName());
+				String[] items = msg.getContent().split(" ");
+				
+				System.out.println(getAID().getName() + ": " + msg.getContent());
+				switch (items[0].toString()){
+				case "mini": {
+					if (!init)
+					{	
+						int inits = Integer.parseInt(items[1].toString());
+						if (inits !=0) {
+						initJobs += inits;
+						printReport("jobnum is: "+ jobNum+ ". And jobs initiated: "+ initJobs);
+						if (initJobs == jobNum) {init = true; printReport("Initiation complete!");}
+						}
+					}
+				}; break;
+				}
+				
+			}
+		}
+	};
 	//I.1 - прородить агенты ресурсов
 	//gets ResName, ResVolume, PlanningHorizon
 	//породить агент нулевой работы
@@ -226,10 +292,11 @@ public class CtrlAgent extends Agent{
 	
 	@Override
 	public void setup() {
-		//достать из 
 		Object[] args = getArguments();//controllerAgentName  projecFilePath projectNumber
+		
+		controller = args[0].toString();
 		    //File file = fileopen.getSelectedFile();
-			System.out.println("Файл открыт");
+			//System.out.println("Файл открыт");
 			/*try {
 				readPSPLibProj(fileopen.getSelectedFile(),jobsParams);
 			} catch (FileNotFoundException e) {
@@ -264,9 +331,9 @@ public class CtrlAgent extends Agent{
 			
 			dueDate = Integer.parseInt(larr.get(3)); tardCost = Integer.parseInt(larr.get(4)); nPMTime = Integer.parseInt(larr.get(5));	
 			//Proj: 1 30 0 38 26 38	
-			System.out.println("Proj: " + projNum + " " + jobNum + " " + relDate + " " + dueDate + " " + tardCost + " " + nPMTime);
+			//System.out.println("Proj: " + projNum + " " + jobNum + " " + relDate + " " + dueDate + " " + tardCost + " " + nPMTime);
 			line = getLineWithSkip(scanner,2);// *,PRECEDENCE RELATIONS, precedence_headlines
-			printReport("Starting to read precedence");
+			//printReport("Starting to read precedence");
 			for (int i = 0; i < jobNum+2;i++)
 			{
 				line = scanner.nextLine();
@@ -284,14 +351,14 @@ public class CtrlAgent extends Agent{
 						nline = arrToString(lustrateMas(line.split(" "), 1).toArray());
 				//обработка 
 				jobsParams.set(i, uniteStrings(st,nline));
-				printReport(jobsParams.get(i));
+				//printReport(jobsParams.get(i));
 			}
 			line = getLineWithSkip(scanner,2);//*,RESOURCEAVALIABILITIES,ResNames
 			resNames = arrToString(lustrateMas(line.split(" ")).toArray());
-			printReport(resNames);
+			//printReport(resNames);
 			line = getLineWithSkip(scanner,0);//ResAvails
 			resAvals = arrToString(lustrateMas(line.split(" ")).toArray());
-			printReport(resAvals);
+			//printReport(resAvals);
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			// вообще-то не нужно,т.к. если APPROVE_OPTION, то там уже точно всё в порядке и файл выбран и он существует. . .
@@ -344,12 +411,13 @@ public class CtrlAgent extends Agent{
 				resAgents.add(genResName(i+1,resNamesArr[i*2]));
 				resAgentController = containerController.createNewAgent(resAgents.get(i), resAgentClass,new String[]{genResName(i+1,resNamesArr[i*2]), resVolArr[i], horizon.toString()});
 				resAgentController.start();
-				printReport(resAgentController.getName() + " created.");
+				//printReport(resAgentController.getName() + " created.");
 			}
 			catch(StaleProxyException e) {
 				e.printStackTrace();
 			}
 		}
+		printReport("Resource agents created");
 		//Hooray! It Works!
 		//запускаем первый и последний агенты работ. Это источник и сток. Им соответствует класс TransmitterAgent
 
@@ -371,18 +439,22 @@ public class CtrlAgent extends Agent{
 			for (int i = 0;i<i2;i++){
 				params.add(jobAgents.get(Integer.parseInt(jobParams[i2+i])-1));
 			}
-			printReport("Source params 1:");
+			/*printReport("Source params 1:");
 			for (String s:params) {
 				printReport(s);
-			}
+			}*/
 			taskAgentController = containerController.createNewAgent(genJobName(1), transmitterAgent,params.toArray(jobParams));
 			taskAgentController.start();
-			printReport(taskAgentController.getName() + " created.");
+			//printReport(taskAgentController.getName() + " created.");
 		}
 		catch(StaleProxyException e) {
 			e.printStackTrace();
 		}
 		ArrayList<String> connectedToSink = new ArrayList<>();
+		
+		printReport("started");
+		addBehaviour(init0);// we need to make sure that no message will stay back. . .
+		
 		for (int i = 2;i<=jobNum+1;i++) {
 		//{int i = 2; //test line to replace prev one in testing env
 			params.clear();
@@ -394,6 +466,7 @@ public class CtrlAgent extends Agent{
 				int sucN = Integer.parseInt(jobParams[2]);
 				if (jobParams[sucN + 2].equals(((Integer)(jobNum+2)).toString()))
 					connectedToSink.add(genJobName(Integer.parseInt(jobParams[0])) + localPlatform);
+				params.add(this.getAID().getName());
 				params.add(genJobName(i)+localPlatform);//TaskName
 				params.add(""+sucN);//numSuc
 				params.add(""+resNum);//numRes
@@ -439,29 +512,20 @@ public class CtrlAgent extends Agent{
 			 for (int i = 0; i<i2;i++) {
 				 params.add(connectedToSink.get(i));
 			 }
-			printReport("Source params 2:");
+			/*printReport("Source params 2:");
 			for (String s:params) {
 				printReport(s);
-			} 
+			} */
 			taskAgentController = containerController.createNewAgent(genJobName(jobNum+2), transmitterAgent,params.toArray(jobParams));
 			taskAgentController.start();
-			printReport(taskAgentController.getName() + " created.");
+			//printReport(taskAgentController.getName() + " created.");
 		}
 		catch(StaleProxyException e) {
 			e.printStackTrace();
 		}
 		//now we need to initialize our network and build up connections
-		addBehaviour(init1);
 		
 		//TODO: Добавим приёмник сообщений. Пока о том, что всё встало.
-		addBehaviour(new CyclicBehaviour() {
-			@Override
-			public void action() {
-				ACLMessage msg = receive();
-				if (msg!=null) {
-					System.out.println(getAID().getName() + ": " + msg.getContent());
-				}
-			}
-		});
+		//addBehaviour(nextMsg);
 	}
 }

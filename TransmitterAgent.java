@@ -15,7 +15,7 @@ public class TransmitterAgent extends Agent{
 	//time to make sending queue
 	private MessagesToSend sendQueue = new MessagesToSend();
 	
-	private void sendMes(String reciever, String msg) {
+	private void sendmes(String reciever, String msg) {
 		ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
 		mes.addReceiver(new AID(reciever, AID.ISGUID));
 		mes.setContent(msg);
@@ -41,7 +41,7 @@ public class TransmitterAgent extends Agent{
 		System.out.println(getAID().getLocalName() + ": "+ msg);
 	}
 	
-	Behaviour StopSending2 = new OneShotBehaviour() {
+	/*Behaviour StopSending2 = new OneShotBehaviour() {
 		@Override
 		public void action() {
 			myAgent.removeBehaviour(Send2);
@@ -54,7 +54,7 @@ public class TransmitterAgent extends Agent{
 			if (send2>seconds)
 				myAgent.addBehaviour(StopSending2);
 			else{
-				printReport("Sending to" + secondGroup.get(send2));
+				printReport("Sending to " + secondGroup.get(send2));
 				sendMes(secondGroup.get(send2),message2);
 				send2++;
 			}
@@ -72,14 +72,27 @@ public class TransmitterAgent extends Agent{
 		@Override
 		public void action() {
 			if (send1>firsts)
-				//printReport("StoppedSending");
+				//printRepobbrt("StoppedSending");
 				myAgent.addBehaviour(StopSending1);
-			else {
+			else { 
 				//printReport("Sending Continues");
 				sendMes(firstGroup.get(send1),message1);
 				send1++;
 			}
 		}
+	};*/
+	Behaviour SendingBehaviour = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ArrayList<String> next = sendQueue.getNextToSend();
+				
+				if (next.size()!=0) {
+					String sendTo = next.get(1),
+							message = next.get(0);	
+					//printReport("output "+ sendTo + " "+ message);
+					sendmes(sendTo,message);
+				}
+			}
 	};
 	//main behaviour
 	Behaviour MainTransmitter = new CyclicBehaviour() {
@@ -92,12 +105,14 @@ public class TransmitterAgent extends Agent{
 				if (ifFirst(sender)) {
 					message2 = msg.getContent();
 					//add sending behaviour 
-					addBehaviour(Send2);
+					//addBehaviour(Send2 );
+					sendQueue.add(new SendingTask(secondGroup,message2));
 				}
 				else if  (ifSecond(sender)) {
 					message1 = msg.getContent();
 					//add sending behaviour
-					addBehaviour(Send1);
+					//addBehaviour(Send1);
+					sendQueue.add(new SendingTask(firstGroup,message1));
 				}
 				else printReport("Some unexpected sender: " + sender);
 			}
@@ -130,6 +145,7 @@ public class TransmitterAgent extends Agent{
 		//printReport("second " + secondGroup.get(seconds));
 		//start recieving messages
 		this.addBehaviour(MainTransmitter);
+		this.addBehaviour(SendingBehaviour);
 	}
 
 }

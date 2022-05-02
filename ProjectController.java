@@ -62,7 +62,7 @@ public class ProjectController extends Agent {
 			if (newProject) {
 				newProject = false;
 				//processing
-				System.out.println("Button has been hit!");
+				//System.out.println("Button has been hit!");
 				
 				try {
 					resAgentController = containerController.createNewAgent(genJobName(++projectsNum),ProjectClass ,new String[]{myAgent.getAID().getName(),fileName.getText() ,(projectsNum).toString()});
@@ -86,7 +86,11 @@ public class ProjectController extends Agent {
 			msg = myAgent.receive();
 			//if there's any, process it
 			if (msg!=null) {
-				
+				String sender = (msg.getSender().getName());
+				String[] items = msg.getContent().split(" ");
+				switch (items[0]) {
+				case "":{};break;
+				}
 			}
 		}
 	};
