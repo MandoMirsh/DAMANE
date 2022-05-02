@@ -20,13 +20,13 @@ public class CtrlAgent extends Agent{
 
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
-	Integer initCounter = 0;
+	Integer initCounter = 0, projFin = 0;
 	String resNames = "", resAvals = "", resAgentClass = "agentTest.ResourceAgent",
 			transmitterAgent = "agentTest.TransmitterAgent", jobAgentClass = "agentTest.TaskAgentRewrite";
 	String controller;
 	
 	boolean init = false;
-	Integer initJobs = 0;
+	Integer initJobs = 0, gotMes = 0, mesToGet1, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	
 	private ArrayList<String> jobsParams = new ArrayList<>();
 	private void PSPLibParse(File f, ArrayList<String> jobsParams) throws FileNotFoundException {
@@ -209,16 +209,119 @@ public class CtrlAgent extends Agent{
 		return ret; 
 	}
 	
-	Behaviour  init2 = new OneShotBehaviour() {
+	Behaviour StopInit3 = new OneShotBehaviour() {
 		@Override
 		public void action() {
+			myAgent.removeBehaviour(nextMsg);
+			sendMes(controller,"stup2");
+			myAgent.addBehaviour(StopInit3);
+		}
+		
+	};
+	//meat
+	Behaviour  init3 = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ACLMessage msg = receive();
+			if (msg !=null) {
+				//printReport(msg.getSender().getName() + " " + msg.getContent());
+				String[] items = msg.getContent().split(" ");
+				switch (items[0]) {
+				case "meat": {
+							printReport("Got Meat!");
+							gotMes++;
+							if (gotMes == mesToGet2) {
+								myAgent.addBehaviour(StopInit3);
+								
+								printReport("init3 finished!");
+							}	
+					};
+				break;
+				}
+			}
+		} 
+	};
+	
+	
+	Behaviour StopInit2 = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			printReport("finished init2!");
+			myAgent.removeBehaviour(init2);
+			gotMes = 0;
+			myAgent.addBehaviour(nextMsg);
+			//sendMes()
+			myAgent.addBehaviour(init3);
+			sendMes(controller, "fftin " + projFin);
+			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+		} 
+	};
+	
+	//meaf
+	Behaviour  init2 = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ACLMessage msg = receive();
+			if (msg !=null) {
+				//printReport(msg.getSender().getName() + " " + msg.getContent());
+				String[] items = msg.getContent().split(" ");
+				switch (items[0]) {
+				case "meaf": {
+							printReport("Got Meaf!");
+							gotMes++;
+							int newFin = Integer.parseInt(items[1].toString());
+							if (newFin>projFin) {
+								projFin = newFin;
+							}
+							if (gotMes == mesToGet1)
+							{//Отослать новый финиш проекта управляющему агенту.
+								sendMes(controller,"nfin "+ newFin);
+								printReport("Finished init2! with fin: "+ newFin);
+								myAgent.addBehaviour(StopInit2);
+								
+							}
+					};
+				break;
+				}
+			}
+		} 
+	};
+	Behaviour  StopInit1 = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			printReport("finished init1!");
+			myAgent.removeBehaviour(init1);
+			gotMes = 0;
+			//sendMes()
+			myAgent.addBehaviour(init2);
+			sendMes(controller, "stup 1");
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meaf 0");
 		} 
 	};
-	Behaviour  init1 = new OneShotBehaviour() {
+	//mini
+	Behaviour  init1 = new CyclicBehaviour() {
 		@Override
 		public void action() {
-			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mini 0");
+			ACLMessage msg = receive();
+			if (msg !=null) {
+				printReport(msg.getSender().getName() + " " + msg.getContent());
+				String[] items = msg.getContent().split(" ");
+				switch (items[0]) {
+				case "mini": {
+					if (!init)
+					{	printReport("got mini!");
+						int inits = Integer.parseInt(items[1].toString());
+						if (inits !=0) {
+							initJobs += inits;
+							//printReport("jobnum is: "+ jobNum+ ". And jobs initiated: "+ initJobs);
+							if (initJobs == jobNum) {init = true; printReport("Initiation complete!"); myAgent.addBehaviour(StopInit1);}
+						}
+					}
+					};
+				break;
+				}
+			}
+			
 		} 
 	};
 	Behaviour  StopInit0 = new OneShotBehaviour() {
@@ -227,11 +330,13 @@ public class CtrlAgent extends Agent{
 			printReport("finished init!");
 			myAgent.removeBehaviour(init0);
 			initJobs = 0;
-			myAgent.addBehaviour(nextMsg);
+			//myAgent.addBehaviour(nextMsg);
 			myAgent.addBehaviour(init1);
 			sendMes(controller, "stup 0");
+			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mini 0");
 		} 
 	};
+	//stup
 	Behaviour init0 = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -264,15 +369,12 @@ public class CtrlAgent extends Agent{
 				
 				System.out.println(getAID().getName() + ": " + msg.getContent());
 				switch (items[0].toString()){
-				case "mini": {
-					if (!init)
-					{	
-						int inits = Integer.parseInt(items[1].toString());
-						if (inits !=0) {
-						initJobs += inits;
-						printReport("jobnum is: "+ jobNum+ ". And jobs initiated: "+ initJobs);
-						if (initJobs == jobNum) {init = true; printReport("Initiation complete!");}
-						}
+				case "meaf": {
+					int newFin = Integer.parseInt(items[1].toString());
+					if (newFin>projFin) {
+						//Отослать новый финиш проекта управляющему агенту.
+						sendMes(controller,"nfin "+ newFin);
+						projFin = newFin;
 					}
 				}; break;
 				}
@@ -311,7 +413,7 @@ public class CtrlAgent extends Agent{
 			/*FileReader c = new FileReader(fileopen.getSelectedFile());
 			char [] s = new char[20];
 			System.out.println(c.read(s));
-		/* Попытка грохнуть всю жаду (чёт не работает, впрочем):
+		/* //Попытка грохнуть всю жаду (чёт не работает, впрочем):
 		 * try {
 			this.getContainerController().getPlatformController().kill(); 
 		}
@@ -454,7 +556,7 @@ public class CtrlAgent extends Agent{
 		
 		printReport("started");
 		addBehaviour(init0);// we need to make sure that no message will stay back. . .
-		
+		mesToGet2 =   params.size();
 		for (int i = 2;i<=jobNum+1;i++) {
 		//{int i = 2; //test line to replace prev one in testing env
 			params.clear();
@@ -498,7 +600,7 @@ public class CtrlAgent extends Agent{
 				}
 		}
 		
-		
+		mesToGet1 = connectedToSink.size();
 		//sink
 		//або пихать все возможные названия, або при генерации прочих работ фиксировать есть ли последний номер в разделённой строке. 
 		//Второе. Однозначно второе.

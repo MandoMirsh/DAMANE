@@ -59,7 +59,7 @@ public class TaskAgentRewrite extends Agent {
 	private int sendingnow = 0, sendfinish = -1; //sendinglist forwards
 	private int rsendingnow = 0, rsendfinish = -1; //sendlist backwards
 	private boolean initialFinished = false; //indicator that we have forgone initial boundaries establishment
-	
+	private Integer gotMes1 = 0, gotMes2 = 0, mesToGet1 = 0, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	private MessagesToSend sendQueue = new MessagesToSend();
 	
 	Behaviour StopSendingFinish = new OneShotBehaviour() {
@@ -96,7 +96,7 @@ public class TaskAgentRewrite extends Agent {
 				if (next.size()!=0) {
 					String sendTo = next.get(1),
 							message = next.get(0);	
-					//printReport("output "+ sendTo + " "+ message);
+					printReport("output "+ sendTo + " "+ message);
 					sendmes(sendTo,message);
 				}
 			}
@@ -147,34 +147,44 @@ public class TaskAgentRewrite extends Agent {
 				} break;
 				case "meaf": //printReport("meaf"); //MyEArlyFinish
 					{Integer l = Integer.parseInt(items[1]) + 1;
-						//add predecessor
-
-						if (findPredName(sender) == -1) {
-							//printReport("new predecessor! Name's: "+ sender);
-							prev.add(sender);
-						}
+						//count initial run messages
+						gotMes1++;
+						
 						if (l > earlyStart) {
 							//printReport("Early Start moved, sending messages. . .");
 							earlyStart = l;
 							earlyFinish = earlyStart + timeReq;
 							//myAgent.addBehaviour(SendNewFinish); 
 							//sendmes(sendTo,"meaf "+earlyFinish);
-				 			sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
+							if (gotMes1>mesToGet1)
+								sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
+							
+						}
+						if (gotMes1==mesToGet1) {
+							sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
 						}
 					}; break;
-				case "meat": //MyEArlystarT
+				case "meat": //MylatEstArT
 					printReport("meat");
 				 	{int l = Integer.parseInt(items[1])  - 1;
+				 		gotMes2++;
 				 		if (l>lateFinish) {
 				 			lateFinish = l;
 				 			lateStart = lateFinish - timeReq;
-				 			myAgent.addBehaviour(SendNewStart);
+				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
 				 		}
+				 		
 				 	};break;
 				case "mini":{// we need to start two behaviours 1) send strt to all others 2) 
 						//Проблема - сообщения с нулями после начальной инициализации избыточны.
-						//Integer sendTo1 = Integer.parseInt(items[1]);
-						printReport("input "+ msg.getSender().getName() + " "+ msg.getContent());
+						Integer sendTo1 = Integer.parseInt(items[1]);
+						//add predecessor
+						if (findPredName(sender) == -1) {
+							//printReport("new predecessor! Name's: "+ sender);
+							prev.add(sender);
+							mesToGet1++;
+						}
+						//printReport("input "+ msg.getSender().getName() + " "+ msg.getContent());
 						ArrayList<String> send1 = new ArrayList<>(), send2 = new ArrayList<>(next);
 						send1.add(next.get(0));
 						send2.remove(0);
@@ -183,17 +193,20 @@ public class TaskAgentRewrite extends Agent {
 							if (send2.size()!=0)//"mini 0" after initial transmission is unnecessary
 								sendQueue.add(new SendingTask(send2,"mini 0"));
 							initialFinished = true;//initial transmission has been made
-							//sendTo1++;
-							sendQueue.add(new SendingTask(send1,"mini 1"));
+							sendTo1++;
+							//sendQueue.add(new SendingTask(send1,"mini 1"));
 						}
-						//sendQueue.add(new SendingTask(send1, "mini " + sendTo1));
-						sendQueue.add(new SendingTask(send1, msg.getContent()));
+						sendQueue.add(new SendingTask(send1, "mini " + sendTo1));
+						//sendQueue.add(new SendingTask(send1, msg.getContent()));
 				}
 					break;
 				case "remp": {
 
 					int i = findPredName(sender); 
-					if (i>-1) prev.remove(i);
+					if (i>-1) {
+						prev.remove(i);
+						mesToGet1--;
+					}
 					};break;
 				default: printReport("else"); break;
 				}
@@ -210,7 +223,6 @@ public class TaskAgentRewrite extends Agent {
 			resNum = Integer.parseInt(args[3].toString()),
 			sucStart = 5, resNmStart = sucStart + sucNum,  
 			resVolStart = resNmStart + resNum;
-			
 			timeReq = Integer.parseInt(args[4].toString()); 
 				//add successors
 				for (int i = 0; i<sucNum;i++) {
