@@ -183,6 +183,21 @@ public class ProjectController extends Agent {
 								model.setValueAt(newFin.toString(), i, 4);
 						}
 					}; break; 
+					case "nfin":{
+						Integer newFin = Integer.parseInt(items[1]);
+						//find sender
+						Integer i = projects.searchByAgent(senderShort);
+						if (i==-1)
+							printReport("All you had to do is to follow tha damn train CJ!");
+						else {
+								ProjectDesc toChange = projects.get(i);
+							//setNewFin
+								toChange.setInitFinish(newFin);
+								toChange.setFinish(newFin);
+								projects.changeProjectAt(i,toChange);
+								model.setValueAt(newFin.toString(), i, 4);
+						}
+					}; break; 
 				}
 			}
 		}
