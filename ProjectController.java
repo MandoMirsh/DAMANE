@@ -131,10 +131,10 @@ public class ProjectController extends Agent {
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
 					case "stup":{
+						//find sender
+						Integer i = projects.searchByAgent(senderShort);
 						switch (items[1]) {
 						case "0":{
-							//find sender
-							Integer i = projects.searchByAgent(senderShort); 
 							if (i==-1)
 								printReport("All you had to do is to follow tha damn train CJ!");
 							else {
@@ -149,24 +149,43 @@ public class ProjectController extends Agent {
 							}
 						};break;
 						case "1":{
-							//find sender
-							Integer i = projects.searchByAgent(senderShort); 
 							if (i==-1)
 								printReport("All you had to do is to follow tha damn train CJ!");
 							else {
 								//printReport("got stup 1 and at position" + i+ " from "+ sender);
 								ProjectDesc toChange = projects.get(i);
 								//change readiness to the INITINPROGRESS
-								toChange.setReadiness(ProjectDesc.INITALMOSTREADY);
+								toChange.setReadiness(ProjectDesc.INITHALFREADY);
 								//save it
 								projects.changeProjectAt(i, toChange);
 								//change table
+								model.setValueAt("INIT_40%", i, 2);
+							}
+						};break;
+						case "2":{
+							if (i==-1)
+								printReport("All you had to do is to follow tha damn train CJ!");
+							else {
+								ProjectDesc toChange = projects.get(i);
+								toChange.setReadiness(ProjectDesc.INITALMOSTREADY);
+								projects.changeProjectAt(i,toChange);
 								model.setValueAt("INIT_70%", i, 2);
+							}
+						};break;
+						case "3":{
+							if (i==-1)
+								printReport("All you had to do is to follow tha damn train CJ!");
+							else {
+								ProjectDesc toChange = projects.get(i);
+								toChange.setReadiness(ProjectDesc.INITIALIZATIONPASSED);
+								projects.changeProjectAt(i,toChange);
+								model.setValueAt("NET_WORKNIG", i, 2);
 							}
 						};break;
 						}
 						//find 
 					};break;
+					
 					case "ffin":{
 						Integer newFin = Integer.parseInt(items[1]);
 						//find sender

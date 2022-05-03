@@ -3,7 +3,7 @@ package agentTest;
 public class ProjectDesc {
 	private String agentName,fileName;
 	private Integer ready, nonConstraintFinish, realTimeFinish;
-	public static final Integer NOINIT = 0,INITINPROGRESS = 1,  INITALMOSTREADY= 2,INITIALIZATIONPASSED= 3, HAVETHEFIRSTCHANGE = 4, READY = 5; 
+	public static final Integer NOINIT = 0,INITINPROGRESS = 1,  INITHALFREADY= 2,INITALMOSTREADY= 3, INITIALIZATIONPASSED = 4, READY = 5; 
 	ProjectDesc(String agent, String file){
 		this.agentName = agent;
 		this.fileName = file;
