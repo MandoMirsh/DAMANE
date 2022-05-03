@@ -209,12 +209,52 @@ public class CtrlAgent extends Agent{
 		return ret; 
 	}
 	
+	Behaviour StopInit4 = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			myAgent.removeBehaviour(init4);
+			sendMes(controller,"stup 3");
+			myAgent.addBehaviour(nextMsg);
+			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+		}
+		
+	};
+	//stup	
+	Behaviour  init4 = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ACLMessage msg = receive();
+			if (msg !=null) {
+				//printReport(msg.getSender().getName() + " " + msg.getContent());
+				String[] items = msg.getContent().split(" ");
+				switch (items[0]) {
+				case "stup": {
+							//printReport("Got Meat!");
+							gotMes++;
+							if (gotMes == mesToGet2) {
+								myAgent.addBehaviour(StopInit4);
+								printReport("init4 finished!");
+							}	
+					};
+				break;
+				case "meaf":{//very unlikely but there can be changes in finishes before getting first stup. . .
+					int newFin = Integer.parseInt(items[1].toString());
+					if (newFin>projFin) {
+						projFin = newFin;
+						sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+					}
+				}
+				}
+			}
+		} 
+	};
 	Behaviour StopInit3 = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			myAgent.removeBehaviour(nextMsg);
-			sendMes(controller,"stup2");
-			myAgent.addBehaviour(StopInit3);
+			myAgent.removeBehaviour(init3);
+			sendMes(controller,"stup 2");
+			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			myAgent.addBehaviour(init4);
 		}
 		
 	};
