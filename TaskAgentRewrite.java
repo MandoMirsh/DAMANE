@@ -146,7 +146,7 @@ public class TaskAgentRewrite extends Agent {
 				sendQueue.add(new SendingTask(send,"rept "+earlyFinish));
 				} break;
 				case "meaf": //printReport("meaf"); //MyEArlyFinish
-					{Integer l = Integer.parseInt(items[1]) + 1;
+					{Integer l = Integer.parseInt(items[1]);
 						//count initial run messages
 						gotMes1++;
 						
@@ -166,7 +166,7 @@ public class TaskAgentRewrite extends Agent {
 					}; break;
 				case "meat": //MylatEstArT
 					//printReport("meat");
-				 	{int l = Integer.parseInt(items[1])  - 1;
+				 	{int l = Integer.parseInt(items[1]);
 				 		gotMes2++;
 				 		if (l>lateFinish) {
 				 			lateFinish = l;
