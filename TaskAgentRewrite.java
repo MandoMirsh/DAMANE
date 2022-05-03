@@ -96,7 +96,7 @@ public class TaskAgentRewrite extends Agent {
 				if (next.size()!=0) {
 					String sendTo = next.get(1),
 							message = next.get(0);	
-					printReport("output "+ sendTo + " "+ message);
+					//printReport("output "+ sendTo + " "+ message);
 					sendmes(sendTo,message);
 				}
 			}
@@ -165,7 +165,7 @@ public class TaskAgentRewrite extends Agent {
 						}
 					}; break;
 				case "meat": //MylatEstArT
-					printReport("meat");
+					//printReport("meat");
 				 	{int l = Integer.parseInt(items[1])  - 1;
 				 		gotMes2++;
 				 		if (l>lateFinish) {

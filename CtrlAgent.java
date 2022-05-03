@@ -88,7 +88,7 @@ public class CtrlAgent extends Agent{
 			
 			//отношения прецедентности: номер работы, режим, количество преемников, преемники. 
 			//TODO: циклом с 0 по N+1,где N - количество элементов в проекте.
-			printReport("Starting to read precedence");
+			//printReport("Starting to read precedence");
 			for (int i = 0; i < jobNum+2;i++)
 			{
 				line = scanner.nextLine();
@@ -113,7 +113,7 @@ public class CtrlAgent extends Agent{
 						nline = arrToString(lustrateMas(line.split(" "), 1).toArray());
 				//processing 
 				jobsParams.set(i, uniteStrings(st,nline));
-				printReport(jobsParams.get(i));
+				//printReport(jobsParams.get(i));
 			}
 			line = scanner.nextLine();
 
@@ -122,11 +122,11 @@ public class CtrlAgent extends Agent{
 			//resnames
 			line = scanner.nextLine();
 			String resNames = arrToString(lustrateMas(line.split(" ")).toArray());
-			printReport(resNames);
+			//printReport(resNames);
 			//resavaliability
 			line = scanner.nextLine();
 			String resAvals = arrToString(lustrateMas(line.split(" ")).toArray());
-			printReport(resAvals);
+			//printReport(resAvals);
 			//last line of file.
 			line = scanner.nextLine();
 			scanner.close();
@@ -228,7 +228,7 @@ public class CtrlAgent extends Agent{
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
 				case "meat": {
-							printReport("Got Meat!");
+							//printReport("Got Meat!");
 							gotMes++;
 							if (gotMes == mesToGet2) {
 								myAgent.addBehaviour(StopInit3);
@@ -267,7 +267,7 @@ public class CtrlAgent extends Agent{
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
 				case "meaf": {
-							printReport("Got Meaf!");
+							//printReport("Got Meaf!");
 							gotMes++;
 							int newFin = Integer.parseInt(items[1].toString());
 							if (newFin>projFin) {
@@ -304,12 +304,12 @@ public class CtrlAgent extends Agent{
 		public void action() {
 			ACLMessage msg = receive();
 			if (msg !=null) {
-				printReport(msg.getSender().getName() + " " + msg.getContent());
+				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
 				case "mini": {
 					if (!init)
-					{	printReport("got mini!");
+					{	//printReport("got mini!");
 						int inits = Integer.parseInt(items[1].toString());
 						if (inits !=0) {
 							initJobs += inits;
@@ -554,7 +554,7 @@ public class CtrlAgent extends Agent{
 		}
 		ArrayList<String> connectedToSink = new ArrayList<>();
 		
-		printReport("started");
+		//printReport("started");
 		addBehaviour(init0);// we need to make sure that no message will stay back. . .
 		mesToGet2 =   params.size();
 		for (int i = 2;i<=jobNum+1;i++) {
