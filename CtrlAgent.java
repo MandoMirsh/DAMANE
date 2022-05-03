@@ -252,7 +252,7 @@ public class CtrlAgent extends Agent{
 			myAgent.addBehaviour(nextMsg);
 			//sendMes()
 			myAgent.addBehaviour(init3);
-			sendMes(controller, "fftin " + projFin);
+			sendMes(controller, "ffin " + projFin);
 			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
 		} 
 	};
