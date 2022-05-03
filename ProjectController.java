@@ -217,6 +217,17 @@ public class ProjectController extends Agent {
 								model.setValueAt(newFin.toString(), i, 4);
 						}
 					}; break; 
+					case "pfin":{
+						Integer i = projects.searchByAgent(senderShort);
+						if (i==-1)
+							printReport("All you had to do is to follow tha damn train CJ!");
+						else {
+							ProjectDesc toChange = projects.get(i);
+							toChange.setReadiness(ProjectDesc.READY);
+							projects.changeProjectAt(i,toChange);
+							model.setValueAt("MAKESPAN_READY", i, 2);
+						}
+					}
 				}
 			}
 		}
