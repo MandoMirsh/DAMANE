@@ -62,7 +62,7 @@ public class TaskAgentRewrite extends Agent {
 	private Integer gotMes1 = 0, gotMes2 = 0, mesToGet1 = 0, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	private MessagesToSend sendQueue = new MessagesToSend();
 	
-	Behaviour StopSendingFinish = new OneShotBehaviour() {
+	/*Behaviour StopSendingFinish = new OneShotBehaviour() {
 		@Override
 		public void action() {
 			myAgent.removeBehaviour(SendNewFinish);
@@ -86,7 +86,7 @@ public class TaskAgentRewrite extends Agent {
 				sendingnow += 1;
 			}
 		}
-	};
+	};*/
 	
 	Behaviour SendingBehaviour = new CyclicBehaviour() {
 		@Override
@@ -102,7 +102,7 @@ public class TaskAgentRewrite extends Agent {
 			}
 	};
 	
-	Behaviour StopSendingStart = new OneShotBehaviour() {
+	/*Behaviour StopSendingStart = new OneShotBehaviour() {
 		@Override
 		public void action() {
 			myAgent.removeBehaviour(SendNewStart);
@@ -119,7 +119,7 @@ public class TaskAgentRewrite extends Agent {
 				//TODO: add else
 			}
 		}
-	};
+	};*/
 	Behaviour StartUpNet = new CyclicBehaviour(){
 		@Override
 		public void action() {
