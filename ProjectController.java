@@ -37,14 +37,12 @@ public class ProjectController extends Agent {
 	}
 	
 	
-	
-	
 //Agent Management part	
 	String ProjectClass = "agentTest.CtrlAgent", nameAgent = "SuperController";
 	ContainerController containerController;
 	AgentController taskAgentController, resAgentController;
 	private MessagesToSend sendQueue = new MessagesToSend();
-	private ArrayList<ProjectDesc> projects = new ArrayList<>();
+	ProjectStorage projects = new ProjectStorage();
 	
 	private void sendMes(String reciever, String msg) {
 		ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
@@ -96,7 +94,14 @@ public class ProjectController extends Agent {
 				String sender = (msg.getSender().getName());
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
-				case "":{};break;
+					case "stup":{
+						//find 
+					};break;
+					case "ffin":{
+						//find sender
+						Integer newFin = Integer.parseInt(items[1]);
+						//setNewFin
+					}; break; 
 				}
 			}
 		}
