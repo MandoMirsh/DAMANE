@@ -14,7 +14,7 @@ public class ProjectStorage {
 	public Integer searchByAgent(String pattern) {
 		int i2 = projects.size();
 		for (int i = 0; i <i2;i++) {
-			if (projects.get(i).getName() == pattern)
+			if (projects.get(i).getName().equals(pattern))
 				return i;
 		}
 		return -1;
