@@ -26,6 +26,23 @@ public class JobWeight {
 	public String getName() {
 		return jobName;
 	}
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass()!= obj.getClass())
+			return false;
+		JobWeight other = (JobWeight) obj;
+		ArrayList<Integer> i = other.getWeights();
+		if (i.get(0)!=N1)
+			return false;
+		if (i.get(1)!=N2)
+			return false;
+		return true;
+	}
+	
 	
 	public ArrayList<Integer> getWeights(){
 		ArrayList<Integer> ret = new ArrayList<>();
