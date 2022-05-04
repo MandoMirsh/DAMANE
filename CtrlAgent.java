@@ -213,8 +213,11 @@ public class CtrlAgent extends Agent{
 		@Override
 		public void action() {
 			myAgent.removeBehaviour(init4);
+			printReport("init4 finished!");
 			myAgent.addBehaviour(nextMsg);
-			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			sendMes(controller,"stup 3");
+			
+			//sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
 		
 	};
@@ -224,15 +227,13 @@ public class CtrlAgent extends Agent{
 		public void action() {
 			ACLMessage msg = receive();
 			if (msg !=null) {
-				//printReport(msg.getSender().getName() + " " + msg.getContent());
+				printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
 				case "stup": {
-							//printReport("Got Meat!");
 							gotMes++;
 							if (gotMes == mesToGet2) {
 								myAgent.addBehaviour(StopInit4);
-								printReport("init4 finished!");
 							}	
 					};
 				break;
@@ -251,10 +252,11 @@ public class CtrlAgent extends Agent{
 		@Override
 		public void action() {
 			myAgent.removeBehaviour(init3);
+			printReport("init3 finished!");
+			gotMes=0;
 			sendMes(controller,"stup 2");
-			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 			myAgent.addBehaviour(init4);
-			sendMes(controller,"stup 3");
+			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
 		
 	};
@@ -267,13 +269,12 @@ public class CtrlAgent extends Agent{
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
-				case "mest": {
-							//gotMes++;
+				case "meat": {
+							gotMes++;
 							//printReport("Got Meat! Now "+ gotMes +" times!");
-							//if (gotMes == mesToGet2) {
+							if (gotMes == mesToGet2) {
 								myAgent.addBehaviour(StopInit3);
-								printReport("init3 finished!");
-							//}	
+							}	
 					};
 				break;
 				}
@@ -285,14 +286,14 @@ public class CtrlAgent extends Agent{
 	Behaviour StopInit2 = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			printReport("finished init2!");
+			//printReport("finished init2!");
 			myAgent.removeBehaviour(init2);
 			gotMes = 0;
-			myAgent.addBehaviour(nextMsg);
+			//myAgent.addBehaviour(nextMsg);
 			//sendMes()
 			myAgent.addBehaviour(init3);
 			sendMes(controller, "ffin " + projFin);
-			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mest "+ projFin);
+			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
 		} 
 	};
 	
@@ -315,7 +316,7 @@ public class CtrlAgent extends Agent{
 							if (gotMes == mesToGet1)
 							{//ќтослать новый финиш проекта управл€ющему агенту.
 								sendMes(controller,"nfin "+ newFin);
-								printReport("Finished init2! with fin: "+ newFin);
+								//printReport("Finished init2! with fin: "+ newFin);
 								myAgent.addBehaviour(StopInit2);
 								
 							}
@@ -366,7 +367,7 @@ public class CtrlAgent extends Agent{
 	Behaviour  StopInit0 = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			printReport("finished init!");
+			//printReport("finished init!");
 			myAgent.removeBehaviour(init0);
 			initJobs = 0;
 			//myAgent.addBehaviour(nextMsg);
@@ -406,7 +407,7 @@ public class CtrlAgent extends Agent{
 				String sender = (msg.getSender().getName());
 				String[] items = msg.getContent().split(" ");
 				
-				System.out.println(getAID().getName() + ": " + msg.getContent());
+				//System.out.println(getAID().getName() + ": " + msg.getContent());
 				switch (items[0].toString()){
 				case "meaf": {
 					int newFin = Integer.parseInt(items[1].toString());

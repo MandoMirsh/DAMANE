@@ -147,7 +147,20 @@ public class TaskAgentRewrite extends Agent {
 				 			myWeight = new JobWeight("me",earlyFinish - lateStart,lateFinish - earlyStart);
 				 		}	
 				 	}; break;
-				case "":{}; break;
+				case "meaf":{Integer l = Integer.parseInt(items[1]);
+						if (l > earlyStart) {
+							earlyStart = l;
+							earlyFinish = earlyStart + timeReq;
+							//myAgent.addBehaviour(SendNewFinish); 
+							//sendmes(sendTo,"meaf "+earlyFinish);
+							if (gotMes1>mesToGet1)
+								sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
+					
+						}
+						if (gotMes1==mesToGet1) {
+							sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
+						}
+					}; break;
 				}
 				
 			}
@@ -200,6 +213,7 @@ public class TaskAgentRewrite extends Agent {
 				case "meat": //MylatEstArT
 					//printReport("gotmeat");
 				 	{int l = Integer.parseInt(items[1]);
+				 		gotMes2++;
 				 		if (l>lateFinish) {
 				 			lateFinish = l;
 				 			lateStart = lateFinish - timeReq;
@@ -215,7 +229,7 @@ public class TaskAgentRewrite extends Agent {
 				 		}
 			 				
 				 	};break;
-				case "mest": //MylatEStartiniT
+				/*case "mest": //MylatEStartiniT
 					//printReport("gotmest " + gotMes2);
 				 	{int l = Integer.parseInt(items[1]);
 				 		gotMes2++;
@@ -233,7 +247,7 @@ public class TaskAgentRewrite extends Agent {
 				 			
 				 		}
 			 				
-				 	};break;
+				 	};break;*/
 				case "mini":{// we need to start two behaviours 1) send strt to all others 2) 
 						//Проблема - сообщения с нулями после начальной инициализации избыточны.
 						Integer sendTo1 = Integer.parseInt(items[1]);
@@ -268,7 +282,7 @@ public class TaskAgentRewrite extends Agent {
 					}
 					};break;
 				case "stup":{
-					printReport("stup");
+					//printReport("stup");
 					sendQueue.add(new SendingTask(next, "stup"));
 					myAgent.addBehaviour(ChangeSendingBeh);
 				};break;
