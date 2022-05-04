@@ -61,7 +61,6 @@ public class TaskAgentRewrite extends Agent {
 	private boolean initialFinished = false; //indicator that we have forgone initial boundaries establishment
 	private Integer gotMes1 = 0, gotMes2 = 0, mesToGet1 = 0, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	private MessagesToSend sendQueue = new MessagesToSend();
-	private WeightsList weights = new WeightsList();
 	private boolean workInPorgressFlag = false;//the net is initialized and this very task has every right to carry on negotiations with resources
 	private JobWeight myWeight;
 	/*Behaviour StopSendingFinish = new OneShotBehaviour() {
@@ -144,7 +143,7 @@ public class TaskAgentRewrite extends Agent {
 				 			lateFinish = l;
 				 			lateStart = lateFinish - timeReq;
 				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
-				 			myWeight = new JobWeight("me",earlyFinish - lateStart,lateFinish - earlyStart);
+				 			myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - earlyStart);
 				 		}	
 				 	}; break;
 				case "meaf":{Integer l = Integer.parseInt(items[1]);
@@ -223,7 +222,7 @@ public class TaskAgentRewrite extends Agent {
 				 		if (gotMes2==mesToGet2) {
 				 			printReport("sentmeat");
 				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
-				 			myWeight = new JobWeight("me",earlyFinish - lateStart,lateFinish - earlyStart);
+				 			myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - earlyStart);
 				 			//sendQueue.add(new SendingTask(prev, "tiko "+ (earlyFinish - lateStart) + " " + (lateFinish - earlyStart)));
 				 			
 				 		}

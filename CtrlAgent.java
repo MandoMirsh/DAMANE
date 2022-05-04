@@ -227,7 +227,7 @@ public class CtrlAgent extends Agent{
 		public void action() {
 			ACLMessage msg = receive();
 			if (msg !=null) {
-				printReport(msg.getSender().getName() + " " + msg.getContent());
+				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
 				case "stup": {
