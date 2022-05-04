@@ -27,15 +27,17 @@ public class ResourceRequest implements Comparable<ResourceRequest> {
 	@Override
 	public int compareTo(ResourceRequest o) {
 		// TODO Auto-generated method stub
-		if (this.requestStart == o.getStart())
-			if (this.tightness.equals(o.getWeight()))
-			{
-				return this.requestersName.compareTo(o.getName());
-			}
+		if (this.requestStatus == o.getStatus())
+			if (this.requestStart == o.getStart())
+				if (this.tightness.equals(o.getWeight()))
+				{
+					return this.requestersName.compareTo(o.getName()); 
+				}
+				else
+					return (new JobWeightComparator().compare(this.tightness,o.getWeight()));
 			else
-				return (new JobWeightComparator().compare(this.tightness,o.getWeight()));
-		else
-			return this.requestStart.compareTo(o.getStart());
+				return this.requestStart.compareTo(o.getStart());
+		else return this.requestStatus.compareTo(o.getStatus());
 	}
 
 }
