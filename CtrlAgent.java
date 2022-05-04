@@ -213,7 +213,6 @@ public class CtrlAgent extends Agent{
 		@Override
 		public void action() {
 			myAgent.removeBehaviour(init4);
-			sendMes(controller,"stup 3");
 			myAgent.addBehaviour(nextMsg);
 			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
@@ -253,8 +252,9 @@ public class CtrlAgent extends Agent{
 		public void action() {
 			myAgent.removeBehaviour(init3);
 			sendMes(controller,"stup 2");
-			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 			myAgent.addBehaviour(init4);
+			sendMes(controller,"stup 3");
 		}
 		
 	};
@@ -267,14 +267,13 @@ public class CtrlAgent extends Agent{
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
 				switch (items[0]) {
-				case "meat": {
-							//printReport("Got Meat!");
-							gotMes++;
-							if (gotMes == mesToGet2) {
+				case "mest": {
+							//gotMes++;
+							//printReport("Got Meat! Now "+ gotMes +" times!");
+							//if (gotMes == mesToGet2) {
 								myAgent.addBehaviour(StopInit3);
-								
 								printReport("init3 finished!");
-							}	
+							//}	
 					};
 				break;
 				}
@@ -293,7 +292,7 @@ public class CtrlAgent extends Agent{
 			//sendMes()
 			myAgent.addBehaviour(init3);
 			sendMes(controller, "ffin " + projFin);
-			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mest "+ projFin);
 		} 
 	};
 	
@@ -596,7 +595,7 @@ public class CtrlAgent extends Agent{
 		
 		//printReport("started");
 		addBehaviour(init0);// we need to make sure that no message will stay back. . .
-		mesToGet2 =   params.size();
+		mesToGet2 =   params.size()/2;
 		for (int i = 2;i<=jobNum+1;i++) {
 		//{int i = 2; //test line to replace prev one in testing env
 			params.clear();

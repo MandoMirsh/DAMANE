@@ -54,14 +54,16 @@ public class TaskAgentRewrite extends Agent {
 	private ArrayList<String> prev = new ArrayList<>(),next = new ArrayList<>();//previous and next ones
 	private ArrayList<Resource> resReq = new ArrayList<>(); //resource requirements
 	private ArrayList<ResourceReserve> reserved = new ArrayList<>(); //resource reserves
-	private int earlyStart = -1, earlyFinish, lateStart, lateFinish, timeReq = 0; 
+	private int earlyStart = -1, earlyFinish, lateStart, lateFinish = 0, timeReq = 0; 
 	private int satisfaction = 100;//satisfaction percentage
 	private int sendingnow = 0, sendfinish = -1; //sendinglist forwards
 	private int rsendingnow = 0, rsendfinish = -1; //sendlist backwards
 	private boolean initialFinished = false; //indicator that we have forgone initial boundaries establishment
 	private Integer gotMes1 = 0, gotMes2 = 0, mesToGet1 = 0, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	private MessagesToSend sendQueue = new MessagesToSend();
-	
+	private WeightsList weights = new WeightsList();
+	private boolean workInPorgressFlag = false;//the net is initialized and this very task has every right to carry on negotiations with resources
+	private JobWeight myWeight;
 	/*Behaviour StopSendingFinish = new OneShotBehaviour() {
 		@Override
 		public void action() {
@@ -126,8 +128,39 @@ public class TaskAgentRewrite extends Agent {
 			
 		}
 	};
-	
-	
+	Behaviour NxtMSGProc = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			//checking new messages
+			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+			msg = myAgent.receive();
+			if (msg!=null) {
+				String[] items = msg.getContent().split(" ");
+				switch (items[0].toString()){
+				case "meat": //MylatEstArT
+					//printReport("gotmeat");
+				 	{int l = Integer.parseInt(items[1]);
+				 		if (l>lateFinish) {
+				 			lateFinish = l;
+				 			lateStart = lateFinish - timeReq;
+				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
+				 			myWeight = new JobWeight("me",earlyFinish - lateStart,lateFinish - earlyStart);
+				 		}	
+				 	}; break;
+				case "":{}; break;
+				}
+				
+			}
+		}
+	};
+	Behaviour ChangeSendingBeh = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			myAgent.removeBehaviour(NextMSGProcess);
+			myAgent.addBehaviour(NxtMSGProc);
+		}
+	};
+	//MSG Process atStartUp
 	Behaviour NextMSGProcess = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -165,15 +198,41 @@ public class TaskAgentRewrite extends Agent {
 						}
 					}; break;
 				case "meat": //MylatEstArT
-					//printReport("meat");
+					//printReport("gotmeat");
+				 	{int l = Integer.parseInt(items[1]);
+				 		if (l>lateFinish) {
+				 			lateFinish = l;
+				 			lateStart = lateFinish - timeReq;
+				 			if (gotMes2>mesToGet2)
+				 				sendQueue.add(new SendingTask(prev, "meat " + lateStart));
+				 		}
+				 		if (gotMes2==mesToGet2) {
+				 			printReport("sentmeat");
+				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
+				 			myWeight = new JobWeight("me",earlyFinish - lateStart,lateFinish - earlyStart);
+				 			//sendQueue.add(new SendingTask(prev, "tiko "+ (earlyFinish - lateStart) + " " + (lateFinish - earlyStart)));
+				 			
+				 		}
+			 				
+				 	};break;
+				case "mest": //MylatEStartiniT
+					//printReport("gotmest " + gotMes2);
 				 	{int l = Integer.parseInt(items[1]);
 				 		gotMes2++;
 				 		if (l>lateFinish) {
 				 			lateFinish = l;
 				 			lateStart = lateFinish - timeReq;
-				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
+				 			if (gotMes2>mesToGet2)
+				 				sendQueue.add(new SendingTask(prev, "mest " + lateStart));
 				 		}
-				 		
+				 		if (gotMes2==mesToGet2) {
+				 			//printReport("sentmeat");
+				 			sendQueue.add(new SendingTask(prev, "mest " + lateStart));
+				 			myWeight = new JobWeight("me",earlyFinish - lateStart,lateFinish - earlyStart);
+				 			//sendQueue.add(new SendingTask(prev, "tiko "+ (earlyFinish - lateStart) + " " + (lateFinish - earlyStart)));
+				 			
+				 		}
+			 				
 				 	};break;
 				case "mini":{// we need to start two behaviours 1) send strt to all others 2) 
 						//Проблема - сообщения с нулями после начальной инициализации избыточны.
@@ -208,8 +267,15 @@ public class TaskAgentRewrite extends Agent {
 						mesToGet1--;
 					}
 					};break;
+				case "stup":{
+					printReport("stup");
+					sendQueue.add(new SendingTask(next, "stup"));
+					myAgent.addBehaviour(ChangeSendingBeh);
+				};break;
+				//case "tiko":{};break; 
 				default: printReport("else"); break;
 				}
+			
 			}
 		}
 	};
@@ -235,6 +301,7 @@ public class TaskAgentRewrite extends Agent {
 				}
 			sendfinish = next.size() - 1;	
 			//printReport("" + initialFinished + " " + args[0].toString());
+			mesToGet2 = next.size();
 			sendmes(args[0].toString(),"stup");
 			this.addBehaviour(NextMSGProcess);
 			this.addBehaviour(SendingBehaviour);
