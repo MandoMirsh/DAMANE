@@ -136,7 +136,7 @@ public class ProjectController extends Agent {
 						switch (items[1]) {
 						case "0":{
 							if (i==-1)
-								printReport("All you had to do is to follow tha damn train CJ!");
+								printReport("All we had to do was follow tha damn train CJ!");
 							else {
 								//printReport("got stup 0 and at position" + i+ " from "+ sender);
 								ProjectDesc toChange = projects.get(i);
@@ -150,7 +150,7 @@ public class ProjectController extends Agent {
 						};break;
 						case "1":{
 							if (i==-1)
-								printReport("All you had to do is to follow tha damn train CJ!");
+								printReport("All we had to do was follow tha damn train CJ!");
 							else {
 								//printReport("got stup 1 and at position" + i+ " from "+ sender);
 								ProjectDesc toChange = projects.get(i);
@@ -164,7 +164,7 @@ public class ProjectController extends Agent {
 						};break;
 						case "2":{
 							if (i==-1)
-								printReport("All you had to do is to follow tha damn train CJ!");
+								printReport("All we had to was to follow tha damn train CJ!");
 							else {
 								ProjectDesc toChange = projects.get(i);
 								toChange.setReadiness(ProjectDesc.INITALMOSTREADY);
@@ -174,7 +174,7 @@ public class ProjectController extends Agent {
 						};break;
 						case "3":{
 							if (i==-1)
-								printReport("All you had to do is to follow tha damn train CJ!");
+								printReport("All we had to do was follow tha damn train CJ!");
 							else {
 								ProjectDesc toChange = projects.get(i);
 								toChange.setReadiness(ProjectDesc.INITIALIZATIONPASSED);
@@ -191,7 +191,7 @@ public class ProjectController extends Agent {
 						//find sender
 						Integer i = projects.searchByAgent(senderShort);
 						if (i==-1)
-							printReport("All you had to do is to follow tha damn train CJ!");
+							printReport("All we had to do was follow tha damn train CJ!");
 						else {
 								ProjectDesc toChange = projects.get(i);
 							//setNewFin
@@ -207,7 +207,7 @@ public class ProjectController extends Agent {
 						//find sender
 						Integer i = projects.searchByAgent(senderShort);
 						if (i==-1)
-							printReport("All you had to do is to follow tha damn train CJ!");
+							printReport("All we had to do was follow tha damn train CJ!");
 						else {
 								ProjectDesc toChange = projects.get(i);
 							//setNewFin
@@ -220,7 +220,7 @@ public class ProjectController extends Agent {
 					case "pfin":{
 						Integer i = projects.searchByAgent(senderShort);
 						if (i==-1)
-							printReport("All you had to do is to follow tha damn train CJ!");
+							printReport("All you had to do was follow tha damn train CJ!");
 						else {
 							ProjectDesc toChange = projects.get(i);
 							toChange.setReadiness(ProjectDesc.READY);
