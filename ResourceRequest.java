@@ -5,7 +5,7 @@ public class ResourceRequest implements Comparable<ResourceRequest> {
 	private Integer requestStart, requestTime, requestVolume, requestStatus; 
 	private String requestersName;
 	private JobWeight tightness = new JobWeight(0,0);
-	public static final Integer REQUEST_RECIEVED = 0, REQUEST_IN_PROCESS = 1, REQUEST_ACCEPTED = 2;
+	public static final Integer REQUEST_RECIEVED = 0, REQUEST_IN_PROCESS = 1, REQUEST_ACCEPTED = 2, REQUEST_FULLFILLED = 3;
 	
 	public ResourceRequest(String name, int start, int span, int volume, JobWeight mark) {
 		requestersName = name;
@@ -14,6 +14,12 @@ public class ResourceRequest implements Comparable<ResourceRequest> {
 	}
 	public int getStart() {
 		return requestStart;
+	}
+	public int longevity() {
+		return requestTime;
+	}
+	public int volume() {
+		return requestVolume;
 	}
 	public JobWeight getWeight() {
 		return tightness;
@@ -24,9 +30,13 @@ public class ResourceRequest implements Comparable<ResourceRequest> {
 	public int getStatus() {
 		return requestStatus;
 	}
+	public void setStatus(int stat) {
+		if ((stat>=REQUEST_RECIEVED)&(stat<=REQUEST_FULLFILLED))
+			requestStatus = stat;
+	}
 	@Override
 	public int compareTo(ResourceRequest o) {
-		// TODO Auto-generated method stub
+		// status - start - tightness - 
 		if (this.requestStatus == o.getStatus())
 			if (this.requestStart == o.getStart())
 				if (this.tightness.equals(o.getWeight()))
@@ -39,5 +49,4 @@ public class ResourceRequest implements Comparable<ResourceRequest> {
 				return this.requestStart.compareTo(o.getStart());
 		else return this.requestStatus.compareTo(o.getStatus());
 	}
-
 }

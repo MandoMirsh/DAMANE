@@ -11,5 +11,4 @@ public class JobWeightComparator implements Comparator<JobWeight> {
 		A2 = Ob2.getWeights();
 		return (A2.get(0)*A1.get(1) - A1.get(0)*A2.get(1)); // we escape division. 
 	}
-
 }
