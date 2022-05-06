@@ -10,7 +10,10 @@ public class ResourceRequest implements Comparable<ResourceRequest> {
 	public ResourceRequest(String name, int start, int span, int volume, JobWeight mark) {
 		requestersName = name;
 		tightness.setWeights(mark.getWeights().get(0), mark.getWeights().get(0));
-		
+		requestStatus = REQUEST_RECIEVED;
+		requestStart = start;
+		requestTime = span;
+		requestVolume = volume;
 	}
 	public int getStart() {
 		return requestStart;
