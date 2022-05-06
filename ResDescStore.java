@@ -25,4 +25,18 @@ public class ResDescStore {
 	public void add(ResourceDescriptor a) {
 		resourses.add(a);
 	}
+	public int size() {
+		return resourses.size();
+	}
+	public ResourceDescriptor get(int i) {
+		return resourses.get(i);
+	}
+	public void set(int i, ResourceDescriptor e) {
+		resourses.set(i, e);
+	}
+	//добавить поиск по имени
+	//добавить обнуление всех флагов
+	//добавить инициализацию по массиву значений
+	//добавить установку начального количества дней
+	//добавить апдейт количества дней и апдейт 
 }

@@ -29,6 +29,7 @@ public class CtrlAgent extends Agent{
 	Integer initJobs = 0, gotMes = 0, mesToGet1, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	
 	private ArrayList<String> jobsParams = new ArrayList<>();
+	private ResDescStore resourseDescs = new ResDescStore(); 
 	private void PSPLibParse(File f, ArrayList<String> jobsParams) throws FileNotFoundException {
 		try {
 			String[] items;
@@ -553,6 +554,8 @@ public class CtrlAgent extends Agent{
 				resAgents.add(genResName(i+1,resNamesArr[i*2]));
 				resAgentController = containerController.createNewAgent(resAgents.get(i), resAgentClass,new String[]{genResName(i+1,resNamesArr[i*2]), resVolArr[i], horizon.toString()});
 				resAgentController.start();
+				resourseDescs.add(new ResourceDescriptor(genResName(i+1,resNamesArr[i*2])+localPlatform));
+				printReport(genResName(i+1,resNamesArr[i*2])+localPlatform);
 				//printReport(resAgentController.getName() + " created.");
 			}
 			catch(StaleProxyException e) {
