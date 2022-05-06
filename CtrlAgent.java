@@ -20,7 +20,7 @@ public class CtrlAgent extends Agent{
 
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
-	Integer initCounter = 0, projFin = 0;
+	Integer projFin = 0, jobsStarted = 0;
 	String resNames = "", resAvals = "", resAgentClass = "agentTest.ResourceAgent",
 			transmitterAgent = "agentTest.TransmitterAgent", jobAgentClass = "agentTest.TaskAgentRewrite";
 	String controller;
@@ -218,7 +218,7 @@ public class CtrlAgent extends Agent{
 			myAgent.addBehaviour(nextMsg);
 			sendMes(controller,"stup 3");
 			
-			//sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
 		
 	};
@@ -418,6 +418,18 @@ public class CtrlAgent extends Agent{
 						projFin = newFin;
 					}
 				}; break;
+				case "tire":{
+					jobsStarted++;
+					if (jobsStarted == jobNum) {
+						sendMes(controller,"stup 4");
+					}
+				};break;
+				case "tnre":{
+					if (jobsStarted == jobNum) {
+						sendMes(controller,"stup 3");
+					}
+					jobsStarted--;
+				};break;
 				}
 				
 			}

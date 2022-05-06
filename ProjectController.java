@@ -24,7 +24,7 @@ import java.awt.event.*;
 //import java.time.Clock;
 public class ProjectController extends Agent {
 	
-	Integer projectsNum = 0;
+	Integer projectsNum = 0,jobsFinished = 0;
 	boolean newProject = false, newFileOpened = false;
 	JFrame frame = new JFrame();
 	
@@ -182,6 +182,16 @@ public class ProjectController extends Agent {
 								model.setValueAt("NET_WORKNIG", i, 2);
 							}
 						};break;
+						case "4":{
+							if (i==-1)
+								printReport("All we had to do was follow tha damn train CJ!");
+							else {
+								ProjectDesc toChange = projects.get(i);
+								toChange.setReadiness(ProjectDesc.READY);
+								projects.changeProjectAt(i,toChange);
+								model.setValueAt("NET_STOPPED", i, 2);
+							}
+						};break;
 						}
 						//find 
 					};break;
@@ -227,7 +237,8 @@ public class ProjectController extends Agent {
 							projects.changeProjectAt(i,toChange);
 							model.setValueAt("MAKESPAN_READY", i, 2);
 						}
-					}
+					};break;
+					case "jrdy":
 				}
 			}
 		}
