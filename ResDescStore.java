@@ -35,8 +35,30 @@ public class ResDescStore {
 		resourses.set(i, e);
 	}
 	//добавить поиск по имени
+	int findPos(String name) {
+		for (int i=0;i<resourses.size();i++)
+			if (resourses.get(i).getName().equals(name))
+				return i;
+		return -1;
+	}
 	//добавить обнуление всех флагов
+	public void  resetAll() {
+		for (int i=0;i<resourses.size();i++)
+			{
+			    ResourceDescriptor tmp = resourses.get(i);
+			    tmp.removeComplete();
+				resourses.set(i, tmp);
+			}
+	}
 	//добавить инициализацию по массиву значений
-	//добавить установку начального количества дней
-	//добавить апдейт количества дней и апдейт 
+	
+	//добавить апдейт количества дней
+	public void setDays(int N) {
+		for (int i=0;i<resourses.size();i++)
+		{
+		    ResourceDescriptor tmp = resourses.get(i);
+		    tmp.setDate(N);
+			resourses.set(i, tmp);
+		}
+	}
 }
