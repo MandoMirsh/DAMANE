@@ -11,8 +11,7 @@ public class DummyAgent extends Agent{
 		@Override 
 		public void action() {
 			ACLMessage msg = blockingReceive();
-			System.out.println(msg.getSender().getName() +": "+ msg.getContent());
-			System.out.println(this.getAgent().getName());
+			System.out.println(this.getAgent().getName() + ": " +msg.getSender().getName() +": "+ msg.getContent());
 		}
 	});
 	}

@@ -29,7 +29,8 @@ public class CtrlAgent extends Agent{
 	Integer initJobs = 0, gotMes = 0, mesToGet1, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	
 	private ArrayList<String> jobsParams = new ArrayList<>();
-	private ResDescStore resourseDescs = new ResDescStore(); 
+	private ResDescStore resourseDescs = new ResDescStore();
+	//private TaskDescStore TaskDescs = new TaskDescStore();
 	private void PSPLibParse(File f, ArrayList<String> jobsParams) throws FileNotFoundException {
 		try {
 			String[] items;
@@ -610,7 +611,6 @@ public class CtrlAgent extends Agent{
 		ArrayList<String> connectedToSink = new ArrayList<>();
 		
 		//printReport("started");
-		addBehaviour(init0);// we need to make sure that no message will stay back. . .
 		mesToGet2 =   params.size()/2;
 		for (int i = 2;i<=jobNum+1;i++) {
 		//{int i = 2; //test line to replace prev one in testing env
@@ -681,7 +681,7 @@ public class CtrlAgent extends Agent{
 			e.printStackTrace();
 		}
 		//now we need to initialize our network and build up connections
-		
+		addBehaviour(init0);
 		//TODO: Добавим приёмник сообщений. Пока о том, что всё встало.
 		//addBehaviour(nextMsg);
 	}

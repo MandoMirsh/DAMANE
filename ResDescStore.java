@@ -41,7 +41,8 @@ public class ResDescStore {
 				return i;
 		return -1;
 	}
-	//добавить обнуление всех флагов
+	/**reset all readiness flags
+	 */
 	public void  resetAll() {
 		for (int i=0;i<resourses.size();i++)
 			{
@@ -50,9 +51,10 @@ public class ResDescStore {
 				resourses.set(i, tmp);
 			}
 	}
-	//добавить инициализацию по массиву значений
+	//reinitialization
+	//TODO: add array initialization
 	
-	//добавить апдейт количества дней
+	//days update
 	public void setDays(int N) {
 		for (int i=0;i<resourses.size();i++)
 		{
@@ -60,5 +62,11 @@ public class ResDescStore {
 		    tmp.setDate(N);
 			resourses.set(i, tmp);
 		}
+	}
+	public void setUp(String name) {
+		int i = findPos(name);
+		ResourceDescriptor tmp = resourses.get(i);
+		tmp.setComplete();
+		resourses.set(i, tmp);
 	}
 }

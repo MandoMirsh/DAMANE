@@ -46,8 +46,9 @@ public class ResReqPriorQueue {
 	public void updateReq(ResourceRequest a) {
 		int i = posInQueue(a);
 		if (i>=0) 
-			resReqs.remove(i);
-		this.add(a);
+			resReqs.set(i,a);
+		else
+			this.add(a);
 	}
 	public ResourceRequest getByName(String name) {
 		int posStated = posInQueue(name);
