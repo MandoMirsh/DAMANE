@@ -69,4 +69,26 @@ public class ResDescStore {
 		tmp.setComplete();
 		resourses.set(i, tmp);
 	}
+	public int maxDate() {
+		switch (resourses.size()) {
+		case 0: return 0;
+		case 1: return resourses.get(0).getDate();
+		default: 
+			int max = resourses.get(0).getDate(); 
+			for (int i = 1; i < resourses.size();i++) {
+				int newmax = resourses.get(i).getDate();
+				if (newmax > max)
+					max = newmax;
+			}
+			return max;
+		}
+	}
+	public void setDate(String name, Integer date) {
+		int i = findPos(name);
+		if (i>=0) {
+			ResourceDescriptor tmp = resourses.get(i);
+			tmp.setDate(date);
+			resourses.set(i, tmp);
+		}
+	}
 }
