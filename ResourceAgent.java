@@ -15,11 +15,12 @@ public class ResourceAgent extends Agent{
 	//gets ResName, ResVolume, PlanningHorizon
 	private ArrayList<Integer> resavaliability = new ArrayList<Integer>();
 	private ArrayList<ResourceReserve> reserves = new ArrayList<ResourceReserve>(); 
+	private ResReqPriorQueue requests = new ResReqPriorQueue();
 	private String resName, reportTo;
 	private int firstres = 0, lastres = 0;// for report testing set lastres 10 else set this 0 at startup. lastres is a very first not affected day.
 	private int resVolume;
 	private int satisfaction;
-	
+	private MessagesToSend sendQueue = new MessagesToSend();
 	private void addres(int start, int days, int volume) {
 		for (int i = 0; i<days;i++) {
 			Integer l = resavaliability.get(i+start);
@@ -49,11 +50,19 @@ public class ResourceAgent extends Agent{
 		return -1;
 		
 	}
-	
 	//search for closest timespan with resources avaliable
+	/**
+	 * 
+	 * @param start starting day
+	 * @param volume resource volume
+	 * @param longevity for how many days need to reserve
+	 * @return possible closest date to make reserve
+	 */
 	private Integer fetchApprTimespan(Integer start, Integer volume, Integer longevity ) {
 		boolean found = false;
 		Integer shift = -1;
+		if (volume == 0)
+			return start;
 		while (!found) {
 			shift++;
 			found = true;
@@ -121,6 +130,130 @@ public class ResourceAgent extends Agent{
 		}
 	};
 	
+	Behaviour SendingBehaviour = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ArrayList<String> next = sendQueue.getNextToSend();
+				
+				if (next.size()!=0) {
+					String sendTo = next.get(1),
+							message = next.get(0);	
+					//printReport("output "+ sendTo + " "+ message);
+					sendmes(sendTo,message);
+				}
+			}
+	};
+	
+	Behaviour NextRequestProcessing = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ResourceRequest tmp = requests.getNext();
+			if (tmp!=null) { 
+				ArrayList<String> recievers = new ArrayList<>();
+				recievers.add(tmp.getName());
+				switch (tmp.getStatus()) {
+					case 0://REQUEST_RECIEVED = 0
+						{	
+							printReport("REQUEST_RECIEVED");
+							//смотрим есть ли возможность поставить на нужную дату.
+							int posDate = fetchApprTimespan(tmp.getStart(), tmp.volume(), tmp.longevity());//possible closest date to make reserve
+							//printReport("timespan: "+posDate);
+							if ( posDate == tmp.getStart())
+								{//да:
+									//мен€ем статус на REQUEST_IN_PROCESS,
+									tmp.setStatus(ResourceRequest.REQUEST_IN_PROCESS);
+									//шлЄм готовность к резерву
+									sendQueue.add(new SendingTask(recievers,"acre " + posDate));
+									//запихиваем обратно
+									requests.updateReq(tmp);
+								}
+							else//нет: 
+								{
+									//шлЄм отказ с новой датой
+									sendQueue.add(new SendingTask(recievers,"dere "+ posDate));
+								}
+						};
+					break;
+					case 1://REQUEST_IN_PROCESS = 1
+						{
+							//printReport("REQUEST_IN_PROCESS");
+							requests.updateReq(tmp);
+						}
+					break;
+					case 2://REQUEST_ACCEPTED = 2
+					{
+						// убираем доступность ресурса.
+						printReport("REQUEST_ACCEPTED");
+						int i1, i2,n;
+						i1 = tmp.getStart();
+						i2 = tmp.longevity();
+						n = tmp.volume();
+						for (int i = 0 ;i<=i2;i++) {
+							int a = resavaliability.get(i+i1);
+							//printReport("there's " + a + " at the " + i+i1 + " place");
+							resavaliability.set(i+i1, a-n);
+						}
+					}
+				break;
+				}
+			}
+		}
+	};
+	Behaviour NextMessage = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+			msg = myAgent.receive();
+			if (msg!=null) {
+				String[] items = msg.getContent().split(" ");
+				switch (items[0]) {
+					case "rreq"://reserve recieved: start span volume mark.N1 mark.N2
+						{
+							//printReport("rreq");
+							ResourceRequest tmp = new ResourceRequest(msg.getSender().getName(),Integer.parseInt(items[1].toString()) ,
+									Integer.parseInt(items[2].toString()), Integer.parseInt(items[3].toString()),
+									new JobWeight(Integer.parseInt(items[4].toString()),Integer.parseInt(items[5].toString())));
+							requests.updateReq(tmp);
+							printReport(items[1].toString());
+						}
+					break;
+					case "rget":
+						{
+							printReport("rget");
+							//достаЄм по имен и отправившего запрос из очереди.
+							ResourceRequest tmp = requests.getByName(msg.getSender().getName());
+							//если он досталс€, провер€ем статус. ≈сли он REQUEST_IN_PROCCESS, то мен€ем на REQUEST_ACCEPTED. » в любом случае после этого обратно пихаем.
+							if (tmp !=null) {
+								if (tmp.getStatus() == ResourceRequest.REQUEST_IN_PROCESS) {
+									tmp.setStatus(ResourceRequest.REQUEST_ACCEPTED);
+								requests.add(tmp);
+								}
+							}
+							else
+								printReport("Sudden accept!");//no requests for sender to accept
+						}
+					break;
+					case "rref":
+					{
+						//смотрим, сколько ресурсов освободилось, на какой срок и подкидываем их в топку
+						
+						//rref DATE, T, N
+						
+						int i1, i2,n;
+						i1 = Integer.parseInt(items[1]);
+						i2 = Integer.parseInt(items[2]);
+						n = Integer.parseInt(items[3]);
+						/*for (int i = 0 ;i<=i2;i++) {
+							int a = resavaliability.get(i+i1);
+							//printReport("there's " + a + " at the " + i+i1 + " place");
+							resavaliability.set(i+i1, a+n);
+						}*/
+						addres(i1,i2,n);
+					}break;
+				}
+			}
+		}
+	};
 	Behaviour NextMSGProcess = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -315,10 +448,12 @@ public class ResourceAgent extends Agent{
 				    
 				}else if (items[0].equals("care")){
 					//отмена резерва CAncel REserve
+					//care VOLUME TIME
 					printReport("Recieved cancellation of reserve");
 					String resOwner = msg.getSender().getName();//msg.getSender().getName() - им€ отправител€.
 				    int i = reservePos(resOwner);
 				    if (i != -1) {
+				    	
 				    	//add resource from reserve
 				    	reserves.remove(i);
 				    }
@@ -341,6 +476,8 @@ public class ResourceAgent extends Agent{
 			resName = args[0].toString();
 			resVolume = Integer.parseInt(args[1].toString());
 			int planningHorizon = Integer.parseInt(args[2].toString());
+			printReport("horizon: "+ planningHorizon);
+			printReport("Volume: " + resVolume);
 			for (int i = 0;i < planningHorizon;i++) {
 				resavaliability.add(resVolume); 
 			}
@@ -348,6 +485,8 @@ public class ResourceAgent extends Agent{
 			
 		}
 		else System.out.println("no arguments!");  
-		addBehaviour(NextMSGProcess);
+		addBehaviour(NextMessage);
+		addBehaviour(SendingBehaviour);
+		addBehaviour(NextRequestProcessing);
 	}
 }
