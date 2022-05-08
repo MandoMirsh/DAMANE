@@ -476,8 +476,8 @@ public class ResourceAgent extends Agent{
 			resName = args[0].toString();
 			resVolume = Integer.parseInt(args[1].toString());
 			int planningHorizon = Integer.parseInt(args[2].toString());
-			printReport("horizon: "+ planningHorizon);
-			printReport("Volume: " + resVolume);
+			//printReport("horizon: "+ planningHorizon);
+			//printReport("Volume: " + resVolume);
 			for (int i = 0;i < planningHorizon;i++) {
 				resavaliability.add(resVolume); 
 			}
