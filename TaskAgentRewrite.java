@@ -8,6 +8,8 @@ import jade.core.behaviours.*;
 import jade.lang.acl.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
@@ -53,6 +55,7 @@ public class TaskAgentRewrite extends Agent {
 	private String control = "ControlAgent", creator = "SuperControlAgent";
 	private String reportTo, projName = "";
 	private ArrayList<String> prev = new ArrayList<>(),next = new ArrayList<>();//previous and next ones
+	private Map<String,Integer> mPrev = new HashMap<String,Integer>(),mNext = new HashMap<String,Integer>();
 	private ArrayList<ResourceReserve> reserved = new ArrayList<>(); //resource reserves
 	private int earlyStart = -1, earlyFinish, lateStart, lateFinish = 0, timeReq = 0; 
 	private int satisfaction = 100;//satisfaction percentage
@@ -270,7 +273,13 @@ public class TaskAgentRewrite extends Agent {
 		public void action() {
 			myAgent.removeBehaviour(NextMSGProcess);
 			myAgent.addBehaviour(NxtMSGProc);
-			//myAgent.addBehaviour(NegotiationStart);
+			myAgent.addBehaviour(NegotiationStart);
+			for (String s:next) {
+			mNext.put(s, lateFinish);	
+			}
+			for (String s:prev) {
+				mPrev.put(s, earlyStart);
+			}
 		}
 	};
 	//MSG Process atStartUp
