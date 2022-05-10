@@ -13,13 +13,21 @@ import jade.wrapper.StaleProxyException;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableModel;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.*;
 //import java.time.Clock;
 public class ProjectController extends Agent {
@@ -42,20 +50,26 @@ public class ProjectController extends Agent {
 	};
 
 	JTextField txtFileName = new JTextField("No File Selected!",30);
+	JComboBox<String> projectName = new JComboBox<>();
 	
 	JFileChooser fileopen = new JFileChooser();
 	JButton btnOpenFile = new JButton("Open New File");
 	JButton btnRunSimulation = new JButton("Run Simulation");
+	JButton btnOpenProjectWindow = new JButton("Open Project");
+	ListSelectionModel ls;
 	DefaultTableModel model = new DefaultTableModel(new Object[][] {},
 				new String[] {
 					"AgentName", "FilePath", "Readiness", "Pre-Constraint Finish", "Finish now"
 				});
+	//SelectionListener tableSelection = new SelectionListener() {
+		
+//	};
 	//GUI part:
 	private void prepareGUI() {
 		frame.setTitle("DAMANE - Darth Atin's Multi-Agent Network for timEtabling");
 		frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
-        //frame.setSize(600, 400);
-        frame.setBounds(100, 100, 650, 400);
+		frame.setResizable(false); 
+        frame.setBounds(100, 100, 650, 220);
         
         scrollTablePane.setPreferredSize(new Dimension(500, 105));
 		scrollTablePane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
@@ -63,12 +77,32 @@ public class ProjectController extends Agent {
 	}
 	
 	
+	String getProjectAgentName(String selection) {
+		//TODO: modify this and addition to combobox at checknewproject to use hashmap to get agent name by localname
+		return selection;
+	}
+	private boolean projectStarted(int rownum) {
+		String readiness = table.getValueAt(rownum,2).toString();
+		switch (readiness) {
+		case "NET_WORKING":
+		case "NET_STOPPED": return true;
+		default: return false;
+		}
+	}
+	private String generateProjectLabel(String projName) {
+		//TODO: make sure label does not contain "Controller"
+		return projName.split("@")[0];
+	}
+	private String nameByLabel(String label) {
+		return jobsByLabel.get(label);
+	}
 //Agent Management part	
 	String ProjectClass = "agentTest.CtrlAgent", nameAgent = "SuperController";
 	ContainerController containerController;
 	AgentController taskAgentController, resAgentController;
 	private MessagesToSend sendQueue = new MessagesToSend();
 	ProjectStorage projects = new ProjectStorage();
+	private Map<String,String> jobsByLabel = new HashMap<String,String>();
 	
 	private void sendMes(String reciever, String msg) {
 		ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
@@ -96,7 +130,7 @@ public class ProjectController extends Agent {
 					String proj = genProjName(++projectsNum);
 					resAgentController = containerController.createNewAgent(proj, ProjectClass ,new String[]{myAgent.getAID().getName(),txtFileName.getText() ,(projectsNum).toString()});
 					resAgentController.start();
-					printReport(resAgentController.getName() + " created.");
+					//printReport(resAgentController.getName() + " created.");
 					//if successfully created agent then add its descriptor.
 					projects.add(new ProjectDesc(proj,txtFileName.getText()));
 					//add new row to the table
@@ -107,8 +141,12 @@ public class ProjectController extends Agent {
 					toAddToTable.add("0");
 					toAddToTable.add("0");
 					model.addRow(toAddToTable.toArray());
-					
 					txtFileName.setText("No File Selected!");
+					//now we add a name to the projectName combobox
+					String ProjCommonName = resAgentController.getName(), label = generateProjectLabel(ProjCommonName);
+					jobsByLabel.put(label, ProjCommonName);
+					projectName.addItem(label);
+					
 				}
 				catch(StaleProxyException e) {
 					e.printStackTrace();
@@ -179,7 +217,7 @@ public class ProjectController extends Agent {
 								ProjectDesc toChange = projects.get(i);
 								toChange.setReadiness(ProjectDesc.INITIALIZATIONPASSED);
 								projects.changeProjectAt(i,toChange);
-								model.setValueAt("NET_WORKNIG", i, 2);
+								model.setValueAt("NET_WORKING", i, 2);
 							}
 						};break;
 						case "4":{
@@ -264,14 +302,45 @@ public class ProjectController extends Agent {
 				}
 			}
 		});
+		projectName.setEditable(false);
+		Dimension size =new Dimension(200, 26);
+		//projectName.setMaximumSize(size);
+		//projectName.setMinimumSize(size);
+		projectName.setPreferredSize(size);
+		projectName.setToolTipText("There you may choose a project to further look into parameters");
+		panel_3.add(projectName);
+		panel_3.add(btnOpenProjectWindow);
+		btnOpenProjectWindow.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed (ActionEvent e) {
+				Integer index = projectName.getSelectedIndex();
+				if (projectStarted(index)) {
+					//printReport(nameByLabel(projectName.getSelectedItem().toString()));
+					Point tmp = frame.getLocation();
+					sendMes(nameByLabel(projectName.getSelectedItem().toString()),"shfr "+ tmp.x + " " + tmp.y);
+				}
+				else JOptionPane.showMessageDialog(frame, "Please retry when project status will be appropriate");
+			}
+		});
 		frame.getContentPane().add(panel, BorderLayout.WEST);
 		frame.getContentPane().add(panel_1, BorderLayout.EAST);
 		frame.getContentPane().add(panel_2, BorderLayout.NORTH);
 		frame.getContentPane().add(panel_3, BorderLayout.SOUTH);
 		frame.getContentPane().add(panel_4, BorderLayout.CENTER);
 		table.setModel(model);
+		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		scrollTablePane.setViewportView(table);
 		table.setColumnSelectionAllowed(true);
+	/*	model.addTableModelListener(new TableModelListener() {
+
+			@Override
+			public void tableChanged(TableModelEvent e) {
+				// TODO Auto-generated method stub
+				// тянем список первых элементов из всех строк таблицы.
+				// меняем список элементов комбобокса.
+			}
+			
+		});*/
 		
 		panel_4.add(scrollTablePane);
 		
