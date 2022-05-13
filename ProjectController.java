@@ -5,10 +5,19 @@ import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.domain.FIPANames;
+import jade.domain.JADEAgentManagement.JADEManagementOntology;
+import jade.domain.JADEAgentManagement.ShutdownPlatform;
 import jade.lang.acl.ACLMessage;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
+import jade.content.ContentException;
+import jade.content.lang.Codec.CodecException;
+import jade.content.lang.sl.SLCodec;
+import jade.content.onto.OntologyException;
+import jade.content.onto.basic.*;
+import jade.content.onto.basic.Action;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
@@ -27,7 +36,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.Rectangle;
+
 import java.awt.event.*;
 //import java.time.Clock;
 public class ProjectController extends Agent {
@@ -48,7 +57,6 @@ public class ProjectController extends Agent {
 			return false;
 		}
 	};
-
 	JTextField txtFileName = new JTextField("No File Selected!",30);
 	JComboBox<String> projectName = new JComboBox<>();
 	
@@ -74,6 +82,68 @@ public class ProjectController extends Agent {
         scrollTablePane.setPreferredSize(new Dimension(500, 105));
 		scrollTablePane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		scrollTablePane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);	
+		panel_2.add(btnOpenFile);
+		txtFileName.setEditable(false);
+		panel_2.add(txtFileName);
+		txtFileName.setToolTipText("A file path is shown there before running a project");
+		panel_2.add(btnRunSimulation);
+		btnOpenFile.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed (ActionEvent e) {
+				int ret = fileopen.showOpenDialog(null);
+				switch (ret) {
+					case (JFileChooser.APPROVE_OPTION):{ txtFileName.setText(fileopen.getSelectedFile().getPath()); newFileOpened = true;};break;
+					case (JFileChooser.CANCEL_OPTION):{};break;
+					case(JFileChooser.ERROR_OPTION):{};break;
+				}
+			}
+		});
+		
+		projectName.setEditable(false);
+		Dimension size =new Dimension(200, 26);
+		//projectName.setMaximumSize(size);
+		//projectName.setMinimumSize(size);
+		projectName.setPreferredSize(size);
+		projectName.setToolTipText("There you may choose a project to further look into parameters");
+		panel_3.add(projectName);
+		panel_3.add(btnOpenProjectWindow);
+		btnOpenProjectWindow.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed (ActionEvent e) {
+				Integer index = projectName.getSelectedIndex();
+				if (projectStarted(index)) {
+					//printReport(nameByLabel(projectName.getSelectedItem().toString()));
+					Point tmp = frame.getLocation();
+					sendMes(nameByLabel(projectName.getSelectedItem().toString()),"shfr "+ tmp.x + " " + tmp.y);
+				}
+				else JOptionPane.showMessageDialog(frame, "Please retry when project status will be appropriate");
+			}
+		});
+		frame.getContentPane().add(panel, BorderLayout.WEST);
+		frame.getContentPane().add(panel_1, BorderLayout.EAST);
+		frame.getContentPane().add(panel_2, BorderLayout.NORTH);
+		frame.getContentPane().add(panel_3, BorderLayout.SOUTH);
+		frame.getContentPane().add(panel_4, BorderLayout.CENTER);
+		table.setModel(model);
+		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		scrollTablePane.setViewportView(table);
+		table.setColumnSelectionAllowed(true);
+		
+		panel_4.add(scrollTablePane);
+		/*frame.addWindowListener(new java.awt.event.WindowAdapter() {
+		    @Override
+		    public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+		    	shutdownPlatform();
+		    }
+		    
+		});*/
+		btnRunSimulation.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				newProject = newFileOpened;
+				newFileOpened = false;
+			}
+		});
 	}
 	
 	
@@ -115,8 +185,31 @@ public class ProjectController extends Agent {
 	}
 	private String genProjName(int agNum) {
 		return ("Project"+agNum+"Controller");
-	} 
-	
+	}  
+	public void shutdownPlatform(Agent a) {
+		Action actExpr = new Action();
+		actExpr.setActor(a.getAMS());
+		actExpr.setAction(null);//was "act" here
+
+		SLCodec codec = new SLCodec();
+		a.getContentManager().registerOntology(JADEManagementOntology.getInstance());
+		a.getContentManager().registerLanguage(codec, FIPANames.ContentLanguage.FIPA_SL0);
+
+		ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+		request.addReceiver(a.getAMS());
+		request.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+		request.setLanguage(FIPANames.ContentLanguage.FIPA_SL0);
+		request.setOntology(JADEManagementOntology.NAME);
+
+		      try {
+		a.getContentManager().fillContent(request, actExpr);
+		a.send(request);
+		      }
+		      catch (ContentException ce) {
+		            // Should never happen
+		            ce.printStackTrace();
+		      }
+		}
 //Behaviours
 	Behaviour CheckNewProject = new CyclicBehaviour() {
 		@Override
@@ -152,7 +245,6 @@ public class ProjectController extends Agent {
 					e.printStackTrace();
 				}
 
-				//System.out.println("I tried to change something inside form. Did that work?");
 			}
 		}
 	};
@@ -286,71 +378,7 @@ public class ProjectController extends Agent {
 		containerController = this.getContainerController();
 		//
 		prepareGUI();
-		panel_2.add(btnOpenFile);
-		txtFileName.setEditable(false);
-		panel_2.add(txtFileName);
-		txtFileName.setToolTipText("A file path is shown there before running a project");
-		panel_2.add(btnRunSimulation);
-		btnOpenFile.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed (ActionEvent e) {
-				int ret = fileopen.showOpenDialog(null);
-				switch (ret) {
-					case (JFileChooser.APPROVE_OPTION):{ txtFileName.setText(fileopen.getSelectedFile().getPath()); newFileOpened = true;};break;
-					case (JFileChooser.CANCEL_OPTION):{};break;
-					case(JFileChooser.ERROR_OPTION):{};break;
-				}
-			}
-		});
-		projectName.setEditable(false);
-		Dimension size =new Dimension(200, 26);
-		//projectName.setMaximumSize(size);
-		//projectName.setMinimumSize(size);
-		projectName.setPreferredSize(size);
-		projectName.setToolTipText("There you may choose a project to further look into parameters");
-		panel_3.add(projectName);
-		panel_3.add(btnOpenProjectWindow);
-		btnOpenProjectWindow.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed (ActionEvent e) {
-				Integer index = projectName.getSelectedIndex();
-				if (projectStarted(index)) {
-					//printReport(nameByLabel(projectName.getSelectedItem().toString()));
-					Point tmp = frame.getLocation();
-					sendMes(nameByLabel(projectName.getSelectedItem().toString()),"shfr "+ tmp.x + " " + tmp.y);
-				}
-				else JOptionPane.showMessageDialog(frame, "Please retry when project status will be appropriate");
-			}
-		});
-		frame.getContentPane().add(panel, BorderLayout.WEST);
-		frame.getContentPane().add(panel_1, BorderLayout.EAST);
-		frame.getContentPane().add(panel_2, BorderLayout.NORTH);
-		frame.getContentPane().add(panel_3, BorderLayout.SOUTH);
-		frame.getContentPane().add(panel_4, BorderLayout.CENTER);
-		table.setModel(model);
-		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		scrollTablePane.setViewportView(table);
-		table.setColumnSelectionAllowed(true);
-	/*	model.addTableModelListener(new TableModelListener() {
-
-			@Override
-			public void tableChanged(TableModelEvent e) {
-				// TODO Auto-generated method stub
-				// тянем список первых элементов из всех строк таблицы.
-				// меняем список элементов комбобокса.
-			}
-			
-		});*/
 		
-		panel_4.add(scrollTablePane);
-		
-		btnRunSimulation.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				newProject = newFileOpened;
-				newFileOpened = false;
-			}
-		});
 		//Object[] args = getArguments();
 		
 		this.addBehaviour(CheckNewProject);

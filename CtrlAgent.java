@@ -9,28 +9,177 @@ import jade.core.Agent;
 import jade.core.Profile;
 import jade.wrapper.AgentController;
 import jade.wrapper.StaleProxyException;
+
+import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 import jade.core.behaviours.*;
 import jade.lang.acl.*;
 public class CtrlAgent extends Agent{
 
+	JFrame frame = new JFrame();
+	JPanel panel = new JPanel();
+	JPanel panel_1 = new JPanel();
+	JPanel panel_2 = new JPanel();
+	private Rectangle newpos = new Rectangle(106, 128, 545, 312);
+	Component horizontalStrut = Box.createHorizontalStrut(20);
+	private Dimension comboSize =new Dimension(150, 26);
+	JComboBox <String> comboResourses = new JComboBox<>();
+	JComboBox <String> comboJobs = new JComboBox<>();
+	JButton btnGetResReport = new JButton("Report!");
+	JButton btnGetJobReport = new JButton("Report!");
+	private JPanel contentPane = new JPanel();
+	JScrollPane scrollPane = new JScrollPane();
+	JScrollPane scrollPane_1 = new JScrollPane();
+	JTable table = new JTable(){
+		@Override
+		public boolean isCellEditable(int row, int column) {
+			return false;
+		}
+	},
+	table_1 = new JTable() {
+		@Override
+		public boolean isCellEditable(int row, int column) {
+			return false;
+		}
+	};
+	DefaultTableModel model = new DefaultTableModel(new Object[][] {},
+								new String[] {
+										"JobName", "Start","Finish","Status", "StartNow","FinishNow"
+							}), 
+			model_1 = new DefaultTableModel( new Object[][] {},
+				new String[] {
+					"ResName","ResQ","ResQNow"
+			});
+	private void setGUI() {
+		frame.setTitle(this.getLocalName() + "status");
+		frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+		frame.setBounds(newpos.x, newpos.y, newpos.width, newpos.height);
+		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+		contentPane.setLayout(new BorderLayout(0, 0));
+		frame.setContentPane(contentPane);
+		contentPane.add(panel, BorderLayout.NORTH);
+		scrollPane.setPreferredSize(new Dimension(500, 105));
+		panel.add(scrollPane);
+		scrollPane.setViewportView(table);
+		contentPane.add(panel_1, BorderLayout.CENTER);
+		scrollPane_1.setPreferredSize(new Dimension(500, 105));
+		scrollPane_1.setViewportView(table_1);
+		panel_1.add(scrollPane_1);
+		table.setModel(model);
+		table_1.setModel(model_1);
+		contentPane.add(panel_2, BorderLayout.SOUTH);
+		panel_2.add(comboResourses);
+		comboResourses.setPreferredSize(comboSize);
+		panel_2.add(btnGetResReport);
+		panel_2.add(horizontalStrut);
+		panel_2.add(comboJobs);
+		comboJobs.setPreferredSize(comboSize);
+		panel_2.add(btnGetJobReport);
+		btnGetResReport.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed (ActionEvent e) {
+				//send "please, report" to the chosen resource agent. 
+				//the chosen resource agent's label is at combobox
+				String name = getResByLabel((comboResourses.getSelectedItem()).toString());
+				sendMes(name,"srep");
+				
+			}
+		});
+	}
+	private void addNewRowJobs(String name) {
+		//add new part to table
+		//jobname start finish status startnow finishnow 
+		ArrayList<String> toAdd = new ArrayList<>();
+		toAdd.add(getJobLabel(name));
+		String addStart = "0", addFinish = "0", status = "STARTED", nowStart = "0", nowFinish = "0";
+		toAdd.add(addStart); toAdd.add(addFinish); toAdd.add(status); toAdd.add(nowStart); toAdd.add(nowFinish);
+		//model.addRow(toAddToTable.toArray());
+		model.addRow(toAdd.toArray());
+		//add new part to combobox;
+		comboJobs.addItem(getJobLabel(name));
+	}
+	private void addNewRowResourses(String name) {
+		//add new part to table
+		//name qstart qnow
+		ArrayList<String> toAdd = new ArrayList<>();
+		toAdd.add(getResLabel(name));
+		String addQ = "0", addQNow = "0";
+		toAdd.add(addQ); toAdd.add(addQNow);
+		model_1.addRow(toAdd.toArray());
+		//add new part to combobox
+		comboResourses.addItem(getResLabel(name));
+	}
+	String getJobLabel(String name) {
+		return name.split("@")[0];
+	}
+	String getResLabel(String name) {
+		return name.split("@")[0];
+	}
+	String getJobByLabel(String label) {
+		return label + "@" + localPlatform;
+		
+	}
+	String getResByLabel(String label) {
+		return label + "@" + localPlatform;
+	}
+	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
 	Integer projFin = 0, jobsStarted = 0;
 	String resNames = "", resAvals = "", resAgentClass = "agentTest.ResourceAgent",
 			transmitterAgent = "agentTest.TransmitterAgent", jobAgentClass = "agentTest.TaskAgentRewrite";
-	String controller;
+	String controller, localPlatform;
+	private Map<String, Integer> places = new HashMap<String,Integer>();
 	
-	boolean init = false;
+	boolean init = false,showFrame = false;
 	Integer initJobs = 0, gotMes = 0, mesToGet1, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	
 	private ArrayList<String> jobsParams = new ArrayList<>();
 	private ResDescStore resourseDescs = new ResDescStore();
 	//private TaskDescStore TaskDescs = new TaskDescStore();
+
+	private void outputVocabularyInit() {
+		outputVoc.put("REPORT_REQUEST", "srep");
+		outputVoc.put("ERROR_READING_FILE","errf");
+		//outputVoc.put(controller, resAvals);
+		outputVoc.put("PROJECT_START", "meaf");
+		
+		
+	}
+	private void initiateVocabulary() {
+		//"rrep", "RESOURSE_REPORTING", "meaf","MY_LATE_FINISH","stup", "STARTED_UP","shfr", "SHOW_FRAME" 
+		//"meat", "MY_EARLY_START", "mini", "MY_INITIALIZATION_INT", "tire","I_AM_READY", "tnre", "I_AM_NOT_READY"
+		commands.put("rrep", "RESOURSE_REPORTING");
+		commands.put("meaf", "MY_LATE_FINISH");
+		commands.put("stup", "STARTED_UP");
+		commands.put("shfr", "SHOW_FRAME");
+		commands.put("meat", "MY_EARLY_START");
+		commands.put("mini", "MY_INITIALIZATION_INT");
+		commands.put("tire","I_AM_READY");
+		commands.put("tnre", "I_AM_NOT_READY");
+	}
+	String commandExplain(String command) {
+		return commands.get(command);
+	}
+	String labelToCommand(String label) {
+		return outputVoc.get(label);
+	}
 	private void PSPLibParse(File f, ArrayList<String> jobsParams) throws FileNotFoundException {
 		try {
 			String[] items;
@@ -140,6 +289,9 @@ public class CtrlAgent extends Agent{
 			//return -1;
 		}
 	}
+	
+
+	
 	private ArrayList<String> lustrateMas(String[] mas, int noread){
 		ArrayList<String> ret2 = lustrateMas(mas),
 							ret = new ArrayList<>();
@@ -148,7 +300,6 @@ public class CtrlAgent extends Agent{
 		}
 		return ret;
 	}
-	
 	private ArrayList<String> lustrateMas(String[] mas){
 		ArrayList<String> ret = new ArrayList<>();
 		for (String s: mas) {
@@ -210,6 +361,18 @@ public class CtrlAgent extends Agent{
 			}
 		return ret; 
 	}
+	Behaviour ifShowFrame = new CyclicBehaviour() {//showFrame is set when we get "shfr"
+		@Override
+		public void action() {
+			if (showFrame) {
+				showFrame= false;
+				if (!frame.isVisible())
+					frame.setBounds(newpos.x, newpos.y, newpos.width, newpos.height);
+				frame.setVisible(true);
+			}
+				
+		}
+	};
 	
 	Behaviour StopInit4 = new OneShotBehaviour() {
 		@Override
@@ -231,15 +394,15 @@ public class CtrlAgent extends Agent{
 			if (msg !=null) {
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
-				switch (items[0]) {
-				case "stup": {
+				switch (commandExplain(items[0])) {
+				case "STARTED_UP": {
 							gotMes++;
 							if (gotMes == mesToGet2) {
 								myAgent.addBehaviour(StopInit4);
 							}	
 					};
 				break;
-				case "meaf":{//very unlikely but there can be changes in finishes before getting first stup. . .
+				case "MY_LATE_FINISH":{//very unlikely but there can be changes in finishes before getting first stup. . .
 					int newFin = Integer.parseInt(items[1].toString());
 					if (newFin>projFin) {
 						projFin = newFin;
@@ -270,8 +433,8 @@ public class CtrlAgent extends Agent{
 			if (msg !=null) {
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
-				switch (items[0]) {
-				case "meat": {
+				switch (commandExplain(items[0])) {
+				case "MY_EARLY_START": {
 							gotMes++;
 							//printReport("Got Meat! Now "+ gotMes +" times!");
 							if (gotMes == mesToGet2) {
@@ -307,8 +470,8 @@ public class CtrlAgent extends Agent{
 			if (msg !=null) {
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
-				switch (items[0]) {
-				case "meaf": {
+				switch (commandExplain(items[0])) {
+				case "MY_LATE_FINISH": {
 							//printReport("Got Meaf!");
 							gotMes++;
 							int newFin = Integer.parseInt(items[1].toString());
@@ -348,8 +511,8 @@ public class CtrlAgent extends Agent{
 			if (msg !=null) {
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
-				switch (items[0]) {
-				case "mini": {
+				switch (commandExplain(items[0])) {
+				case "MY_INITIALIZATION_INT": {
 					if (!init)
 					{	//printReport("got mini!");
 						int inits = Integer.parseInt(items[1].toString());
@@ -366,13 +529,22 @@ public class CtrlAgent extends Agent{
 			
 		} 
 	};
+	/*Behaviour setStartsAndFinishes = new OneShotBehaviour() {
+		@Override
+		public void action() {
+			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stag");
+			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"fiag");
+			myAgent.addBehaviour(init1);
+		}
+	};*/
 	Behaviour  StopInit0 = new OneShotBehaviour() {
 		@Override
 		public void action() {
 			//printReport("finished init!");
 			myAgent.removeBehaviour(init0);
 			initJobs = 0;
-			//myAgent.addBehaviour(nextMsg);
+			//setStartsAndFinishes OR init1  
+			//myAgent.addBehaviour(setStartsAndFinishes);
 			myAgent.addBehaviour(init1);
 			sendMes(controller, "stup 0");
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mini 0");
@@ -387,8 +559,8 @@ public class CtrlAgent extends Agent{
 			if (msg !=null) {
 				//printReport(msg.getSender().getName() + " " + msg.getContent());
 				//String[] items = msg.getContent().split(" ");
-				switch (msg.getContent()) {
-				case "stup": {
+				switch (commandExplain(msg.getContent())) {
+				case "STARTED_UP": {
 						initJobs++;
 						//printReport("" + initJobs);
 						if (initJobs == jobNum) {
@@ -410,8 +582,8 @@ public class CtrlAgent extends Agent{
 				String[] items = msg.getContent().split(" ");
 				
 				//System.out.println(getAID().getName() + ": " + msg.getContent());
-				switch (items[0].toString()){
-				case "meaf": {
+				switch (commandExplain(items[0].toString())){
+				case "MY_LATE_FINISH": {
 					int newFin = Integer.parseInt(items[1].toString());
 					if (newFin>projFin) {
 						//Отослать новый финиш проекта управляющему агенту.
@@ -419,18 +591,20 @@ public class CtrlAgent extends Agent{
 						projFin = newFin;
 					}
 				}; break;
-				case "tire":{
+				case "I_AM_READY":{
 					jobsStarted++;
 					if (jobsStarted == jobNum) {
 						sendMes(controller,"stup 4");
 					}
 				};break;
-				case "tnre":{
+				case "I_AM_NOT_READY":{
 					if (jobsStarted == jobNum) {
 						sendMes(controller,"stup 3");
 					}
 					jobsStarted--;
 				};break;
+				case "SHOW_FRAME":newpos.x =Integer.parseInt(items[1]) + 6;newpos.y =Integer.parseInt(items[2]) + 28;showFrame = true; 
+				break;
 				}
 				
 			}
@@ -448,6 +622,9 @@ public class CtrlAgent extends Agent{
 	
 	@Override
 	public void setup() {
+		setGUI();
+		initiateVocabulary();
+		outputVocabularyInit();
 		Object[] args = getArguments();//controllerAgentName  projecFilePath projectNumber
 		
 		controller = args[0].toString();
@@ -547,7 +724,7 @@ public class CtrlAgent extends Agent{
 		catch(StaleProxyException e) {
 			e.printStackTrace();
 		}*/
-		String localPlatform = "@" + getAID().getName().split("@")[1].toString();
+		localPlatform = "@" + getAID().getName().split("@")[1].toString();
 		//printReport("Local Platform name is :" + localPlatform);
 			
 		/*try{
@@ -567,8 +744,11 @@ public class CtrlAgent extends Agent{
 				resAgents.add(genResName(i+1,resNamesArr[i*2]));
 				resAgentController = containerController.createNewAgent(resAgents.get(i), resAgentClass,new String[]{genResName(i+1,resNamesArr[i*2]), resVolArr[i], horizon.toString()});
 				resAgentController.start();
-				resourseDescs.add(new ResourceDescriptor(genResName(i+1,resNamesArr[i*2])+localPlatform));
-				printReport(genResName(i+1,resNamesArr[i*2])+localPlatform);
+				String name = genResName(i+1,resNamesArr[i*2])+localPlatform;
+				resourseDescs.add(new ResourceDescriptor(name));
+				printReport(name);
+				
+				addNewRowResourses(name);
 				//printReport(resAgentController.getName() + " created.");
 			}
 			catch(StaleProxyException e) {
@@ -601,8 +781,10 @@ public class CtrlAgent extends Agent{
 			for (String s:params) {
 				printReport(s);
 			}*/
-			taskAgentController = containerController.createNewAgent(genJobName(1), transmitterAgent,params.toArray(jobParams));
+			String name = genJobName(1);
+			taskAgentController = containerController.createNewAgent(name, transmitterAgent,params.toArray(jobParams));
 			taskAgentController.start();
+			addNewRowJobs(name);
 			//printReport(taskAgentController.getName() + " created.");
 		}
 		catch(StaleProxyException e) {
@@ -615,7 +797,7 @@ public class CtrlAgent extends Agent{
 		for (int i = 2;i<=jobNum+1;i++) {
 		//{int i = 2; //test line to replace prev one in testing env
 			params.clear();
-			//TaskName, numSuc, numRes,timeNeed SUCCESSORS, RESNAMES, RESVOLUMES
+			// TaskName, numSuc, numRes,timeNeed SUCCESSORS, RESNAMES, RESVOLUMES
 			// in jobsParams:jobnbr, nummodes, numsuc, SUCCESSORS, mode, RESVOLUMES
 			try {
 				jobParams = jobsParams.get(i-1).split(" ");
@@ -646,9 +828,11 @@ public class CtrlAgent extends Agent{
 					params.add(jobParams[j2 -j]);
 				}
 				//params.add(jobParams[3+sucN]); 
-				taskAgentController = containerController.createNewAgent(genJobName(i), jobAgentClass,params.toArray(jobParams));
+				String name = genJobName(i);
+				taskAgentController = containerController.createNewAgent(name, jobAgentClass,params.toArray(jobParams));
 				taskAgentController.start();
 				//printReport(taskAgentController.getName() + " created.");
+				addNewRowJobs(name);
 			}
 				catch (StaleProxyException e) {
 					e.printStackTrace();
@@ -660,6 +844,7 @@ public class CtrlAgent extends Agent{
 		//або пихать все возможные названия, або при генерации прочих работ фиксировать есть ли последний номер в разделённой строке. 
 		//Второе. Однозначно второе.
 		try { 
+			
 			params.clear();
 			int i2 =connectedToSink.size();
 			params.add("1");
@@ -673,8 +858,10 @@ public class CtrlAgent extends Agent{
 			for (String s:params) {
 				printReport(s);
 			} */
-			taskAgentController = containerController.createNewAgent(genJobName(jobNum+2), transmitterAgent,params.toArray(jobParams));
+			String name = genJobName(jobNum+2);
+			taskAgentController = containerController.createNewAgent(name, transmitterAgent,params.toArray(jobParams));
 			taskAgentController.start();
+			addNewRowJobs(name);
 			//printReport(taskAgentController.getName() + " created.");
 		}
 		catch(StaleProxyException e) {
@@ -682,6 +869,7 @@ public class CtrlAgent extends Agent{
 		}
 		//now we need to initialize our network and build up connections
 		addBehaviour(init0);
+		addBehaviour(ifShowFrame);
 		//TODO: Добавим приёмник сообщений. Пока о том, что всё встало.
 		//addBehaviour(nextMsg);
 	}

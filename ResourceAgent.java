@@ -9,17 +9,22 @@ import jade.wrapper.AgentController;
 import jade.wrapper.StaleProxyException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.*;
 public class ResourceAgent extends Agent{
 	//gets ResName, ResVolume, PlanningHorizon
+	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
+	private Map<Integer, String> requestStatusCollection = new HashMap <Integer,String>();
 	private ArrayList<Integer> resavaliability = new ArrayList<Integer>();
 	private ArrayList<ResourceReserve> reserves = new ArrayList<ResourceReserve>(); 
 	private ResReqPriorQueue requests = new ResReqPriorQueue();
 	private String resName, reportTo;
 	private int firstres = 0, lastres = 0;// for report testing set lastres 10 else set this 0 at startup. lastres is a very first not affected day.
 	private int resVolume;
-	private int satisfaction;
+	private int satisfaction; 
+	private boolean startedNegotiations = false;
 	private MessagesToSend sendQueue = new MessagesToSend();
 	private void addres(int start, int days, int volume) {
 		for (int i = 0; i<days;i++) {
@@ -27,6 +32,48 @@ public class ResourceAgent extends Agent{
 			l+=volume;
 			resavaliability.set(i+start, l);
 		}
+	}
+	//TODO BLOCK
+	//TODO: make sure this works properly
+	private Double countInitial() {
+			
+		return 0.0;
+	}
+	private double countfurther() {
+		return 0.0;
+	}
+
+
+	private void outputVocabularyInit() {
+		outputVoc.put("RESERVE_ACCEPTED", "acre");
+		outputVoc.put("RESERVE_DECLINED", "dere");
+	}
+	//TODO ENDS
+	
+	//REQUEST_RECIEVED = 0, REQUEST_IN_PROCESS = 1, REQUEST_ACCEPTED = 2
+	private void requestStatusInitialization() {
+		requestStatusCollection.put(0, "REQUEST_RECIEVED");
+		requestStatusCollection.put(1,"REQUEST_IN_PROCESS");
+		requestStatusCollection.put(2,"REQUEST_ACCEPTED");
+	}
+	private void initiateVocabulary() {
+		//"rreq" "RESOURSE REQUIRED", "rget" "GET RESERVED", "rref" "GIVE_BACK_RESERVE", "strt" "START_NEGOTIATIONS"
+		commands.put("rreq", "RESOURSE_REQUIRED");
+		commands.put("rget", "GET_RESERVED");
+		commands.put("rref", "GIVE_BACK_RESERVE");
+		commands.put("strt", "START_NEGOTIATIONS");
+		commands.put("suba", "DEFICITE_EVENT");
+		commands.put("adda", "PROFICITE_EVENT");
+		commands.put("srep", "REPORT_REQUEST");
+	};
+	String getREquestStatusLabel(Integer n) {
+		return requestStatusCollection.get(n);
+	}
+	String CommandExplain(String command) {
+		return commands.get(command);
+	}
+	String labelToCommand(String label) {
+		return outputVoc.get(label);
 	}
 	private void sendmes(String reciever, String msg) {
 		ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
@@ -59,7 +106,9 @@ public class ResourceAgent extends Agent{
 	 * @return possible closest date to make reserve
 	 */
 	private Integer fetchApprTimespan(Integer start, Integer volume, Integer longevity ) {
-		boolean found = false;
+		//временная мера для отработки положительного сценария.
+		return start;
+		/*boolean found = false;
 		Integer shift = -1;
 		if (volume == 0)
 			return start;
@@ -74,7 +123,8 @@ public class ResourceAgent extends Agent{
 			}
 		}
 		return (start+shift);	
-	}
+	*/}
+	
 	public String getLocalName(AgentController ac) {
 		String s;
 		try {
@@ -129,7 +179,12 @@ public class ResourceAgent extends Agent{
 				}
 		}
 	};
-	
+	Behaviour LoggingBehaviour = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			
+		}
+	};
 	Behaviour SendingBehaviour = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -151,8 +206,8 @@ public class ResourceAgent extends Agent{
 			if (tmp!=null) { 
 				ArrayList<String> recievers = new ArrayList<>();
 				recievers.add(tmp.getName());
-				switch (tmp.getStatus()) {
-					case 0://REQUEST_RECIEVED = 0
+				switch (getREquestStatusLabel(tmp.getStatus())) {
+					case "REQUEST_RECIEVED":
 						{	
 							printReport("REQUEST_RECIEVED");
 							//смотрим есть ли возможность поставить на нужную дату.
@@ -174,13 +229,13 @@ public class ResourceAgent extends Agent{
 								}
 						};
 					break;
-					case 1://REQUEST_IN_PROCESS = 1
+					case "REQUEST_IN_PROCESS":// = 1
 						{
 							//printReport("REQUEST_IN_PROCESS");
 							requests.updateReq(tmp);
 						}
 					break;
-					case 2://REQUEST_ACCEPTED = 2
+					case "REQUEST_ACCEPTED":// = 2
 					{
 						// убираем доступность ресурса.
 						printReport("REQUEST_ACCEPTED");
@@ -206,8 +261,8 @@ public class ResourceAgent extends Agent{
 			msg = myAgent.receive();
 			if (msg!=null) {
 				String[] items = msg.getContent().split(" ");
-				switch (items[0]) {
-					case "rreq"://reserve recieved: start span volume mark.N1 mark.N2
+				switch (CommandExplain(items[0])) {
+					case "RESOURSE_REQUIRED"://reserve recieved: start span volume mark.N1 mark.N2 
 						{
 							//printReport("rreq");
 							ResourceRequest tmp = new ResourceRequest(msg.getSender().getName(),Integer.parseInt(items[1].toString()) ,
@@ -217,10 +272,10 @@ public class ResourceAgent extends Agent{
 							printReport(items[1].toString());
 						}
 					break;
-					case "rget":
+					case "GET_RESERVED":
 						{
 							printReport("rget");
-							//достаём по имен и отправившего запрос из очереди.
+							//достаём по имени отправившего запрос из очереди.
 							ResourceRequest tmp = requests.getByName(msg.getSender().getName());
 							//если он достался, проверяем статус. Если он REQUEST_IN_PROCCESS, то меняем на REQUEST_ACCEPTED. И в любом случае после этого обратно пихаем.
 							if (tmp !=null) {
@@ -233,7 +288,7 @@ public class ResourceAgent extends Agent{
 								printReport("Sudden accept!");//no requests for sender to accept
 						}
 					break;
-					case "rref":
+					case "GIVE_BACK_RESERVE":
 					{
 						//смотрим, сколько ресурсов освободилось, на какой срок и подкидываем их в топку
 						
@@ -250,6 +305,19 @@ public class ResourceAgent extends Agent{
 						}*/
 						addres(i1,i2,n);
 					}break;
+					case "START_NEGOTIATIONS":{
+						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behavious is to be added ONLY if not active
+							myAgent.addBehaviour(NextRequestProcessing);
+							Double toSend = countInitial();
+							sendmes(msg.getSender().getName(),"rrep " + toSend.toString());
+						}
+						else {
+							Double toSend = countfurther();	
+							sendmes(msg.getSender().getName(),"rrep " + toSend.toString());
+						}
+					} break;
+					case "REPORT_REQUEST":
+						break;
 				}
 			}
 		}
@@ -465,7 +533,9 @@ public class ResourceAgent extends Agent{
 	
 	@Override
 	public void setup() {
-		
+		initiateVocabulary();
+		outputVocabularyInit();
+		requestStatusInitialization();
 		//JOptionPane.showMessageDialog(null , "Resource Agent name is:" + getAID().getLocalName());
 		//System.out.println("Resource Agent name is: "+ getAID().getName());
 		Object args[] = getArguments();
@@ -487,6 +557,5 @@ public class ResourceAgent extends Agent{
 		else System.out.println("no arguments!");  
 		addBehaviour(NextMessage);
 		addBehaviour(SendingBehaviour);
-		addBehaviour(NextRequestProcessing);
 	}
 }
