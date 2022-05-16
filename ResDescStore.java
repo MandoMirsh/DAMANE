@@ -65,9 +65,12 @@ public class ResDescStore {
 	}
 	public void setUp(String name) {
 		int i = findPos(name);
-		ResourceDescriptor tmp = resourses.get(i);
-		tmp.setComplete();
-		resourses.set(i, tmp);
+		if (i>=0)
+		{
+			ResourceDescriptor tmp = resourses.get(i);
+			tmp.setComplete();
+			resourses.set(i, tmp);
+		}
 	}
 	public int maxDate() {
 		switch (resourses.size()) {

@@ -13,17 +13,84 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.*;
+import java.awt.BasicStroke;
+import java.awt.Color;
+
+import java.awt.Font;
+
+
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.block.BlockBorder;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
+import org.jfree.chart.title.TextTitle;
+import org.jfree.data.xy.XYDataset;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
 public class ResourceAgent extends Agent{
 	//gets ResName, ResVolume, PlanningHorizon
 	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
 	private Map<Integer, String> requestStatusCollection = new HashMap <Integer,String>();
 	private ArrayList<Integer> resavaliability = new ArrayList<Integer>();
-	private ArrayList<ResourceReserve> reserves = new ArrayList<ResourceReserve>(); 
+	private ArrayList<Integer> extraResources = new ArrayList<>();
+	private ArrayList<ResourceReserve> reserves = new ArrayList<ResourceReserve>();
+	//private ArrayList<>
+	
+	//graph part
+	JFrame frame = new JFrame();
+	XYSeries series = new XYSeries("2022");
+	private JFreeChart reportChart;
+	XYDataset dataset = new XYSeriesCollection();
+	ChartPanel chartPanel;
+	private void initUI() {
+		frame.setTitle(this.getAID().getLocalName() + " plot");
+		frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+		frame.setResizable(false); 
+        frame.setBounds(100, 100, 650, 220);
+        dataset = new XYSeriesCollection();
+        ((XYSeriesCollection) dataset).addSeries(series);
+		reportChart = ChartFactory.createXYLineChart("Resourse Logging","Time","Value",dataset,
+				PlotOrientation.VERTICAL, true, true, false);
+		XYPlot plot = reportChart.getXYPlot();
+		XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
+		renderer.setSeriesPaint(0, Color.RED);
+        renderer.setSeriesStroke(0, new BasicStroke(2.0f));
+        
+        plot.setRenderer(renderer);
+        plot.setBackgroundPaint(Color.white);
+        
+        plot.setRangeGridlinesVisible(true);
+        plot.setRangeGridlinePaint(Color.BLACK);
+        
+        plot.setDomainGridlinesVisible(true);
+        plot.setDomainGridlinePaint(Color.BLACK);
+        
+        reportChart.getLegend().setFrame(BlockBorder.NONE);
+        
+        reportChart.setTitle(new TextTitle("Resourse Logging with Time",
+                new Font("Serif", java.awt.Font.BOLD, 18)));
+        chartPanel = new ChartPanel(reportChart);
+        chartPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        chartPanel.setBackground(Color.white);
+        frame.add(chartPanel);
+	}
+	int LogTime = 50;
+	private Integer addNextLog() {
+		//printReport("" + LogTime);
+		Integer ret = getLog();
+		series.add(++LogTime,getLog());
+		return ret;
+	}
 	private ResReqPriorQueue requests = new ResReqPriorQueue();
 	private String resName, reportTo;
 	private int firstres = 0, lastres = 0;// for report testing set lastres 10 else set this 0 at startup. lastres is a very first not affected day.
 	private int resVolume;
 	private int satisfaction; 
+	private static final int LOGGING_FREQUENCY = 10;
+	private int loggingtime = 0;
 	private boolean startedNegotiations = false;
 	private MessagesToSend sendQueue = new MessagesToSend();
 	private void addres(int start, int days, int volume) {
@@ -33,7 +100,35 @@ public class ResourceAgent extends Agent{
 			resavaliability.set(i+start, l);
 		}
 	}
+	private void subres(int start, int days, int volume) {
+		for (int i = 0; i<days;i++) {
+			Integer l = resavaliability.get(i+start);
+			l-=volume;
+			resavaliability.set(i+start, l);
+		}
+	}
+
 	//TODO BLOCK
+	private int getLog() {
+		Integer ret = 100;
+		for (int i = 0;i <resavaliability.size();i++) {
+			if (ret>resavaliability.get(i))
+				ret = resavaliability.get(i);
+		}
+		return ret;
+	}
+	Behaviour Logging = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			if (loggingtime == 0)
+			{
+				loggingtime = LOGGING_FREQUENCY;
+				
+				sendmes(reportTo,labelToCommand("REPORT_STATUS") + " " + addNextLog());
+			}
+			else loggingtime--;
+		}
+	};
 	//TODO: make sure this works properly
 	private Double countInitial() {
 			
@@ -42,22 +137,22 @@ public class ResourceAgent extends Agent{
 	private double countfurther() {
 		return 0.0;
 	}
-
-
+	
 	private void outputVocabularyInit() {
 		outputVoc.put("RESERVE_ACCEPTED", "acre");
 		outputVoc.put("RESERVE_DECLINED", "dere");
+		outputVoc.put("REPORT_STATUS", "rare");
 	}
 	//TODO ENDS
 	
 	//REQUEST_RECIEVED = 0, REQUEST_IN_PROCESS = 1, REQUEST_ACCEPTED = 2
 	private void requestStatusInitialization() {
 		requestStatusCollection.put(0, "REQUEST_RECIEVED");
-		requestStatusCollection.put(1,"REQUEST_IN_PROCESS");
-		requestStatusCollection.put(2,"REQUEST_ACCEPTED");
+		requestStatusCollection.put(1, "REQUEST_IN_PROCESS");
+		requestStatusCollection.put(2, "REQUEST_ACCEPTED");
 	}
-	private void initiateVocabulary() {
-		//"rreq" "RESOURSE REQUIRED", "rget" "GET RESERVED", "rref" "GIVE_BACK_RESERVE", "strt" "START_NEGOTIATIONS"
+	//"rreq" "RESOURSE REQUIRED", "rget" "GET RESERVED", "rref" "GIVE_BACK_RESERVE", "strt" "START_NEGOTIATIONS"
+	private void initiateVocabulary() {	
 		commands.put("rreq", "RESOURSE_REQUIRED");
 		commands.put("rget", "GET_RESERVED");
 		commands.put("rref", "GIVE_BACK_RESERVE");
@@ -65,11 +160,15 @@ public class ResourceAgent extends Agent{
 		commands.put("suba", "DEFICITE_EVENT");
 		commands.put("adda", "PROFICITE_EVENT");
 		commands.put("srep", "REPORT_REQUEST");
+		//commands.put("shpl", "SHOW_PLOT");
+		commands.put("srep", "SHOW_PLOT");
 	};
 	String getREquestStatusLabel(Integer n) {
 		return requestStatusCollection.get(n);
 	}
 	String CommandExplain(String command) {
+		if (commands.get(command) == null)
+			return "UNKNOWN_MESSAGE";
 		return commands.get(command);
 	}
 	String labelToCommand(String label) {
@@ -106,9 +205,8 @@ public class ResourceAgent extends Agent{
 	 * @return possible closest date to make reserve
 	 */
 	private Integer fetchApprTimespan(Integer start, Integer volume, Integer longevity ) {
-		//временна€ мера дл€ отработки положительного сценари€.
-		return start;
-		/*boolean found = false;
+		//printReport("RESAVAIL: " + resavaliability.get(1) + " VOLUME: "+ volume);
+		boolean found = false;
 		Integer shift = -1;
 		if (volume == 0)
 			return start;
@@ -123,8 +221,12 @@ public class ResourceAgent extends Agent{
 			}
 		}
 		return (start+shift);	
-	*/}
-	
+	}
+	//ChartFactory.createLineChart(myAgent.getAID().getName() + " max")
+	/*createLineChart(String title,
+                           String categoryAxisLabel,
+                           String valueAxisLabel,
+                           CategoryDataset dataset);*/
 	public String getLocalName(AgentController ac) {
 		String s;
 		try {
@@ -136,8 +238,7 @@ public class ResourceAgent extends Agent{
 		
 		return s;
 	}
-	
-	Behaviour stopReporting = new OneShotBehaviour() {
+/*	Behaviour stopReporting = new OneShotBehaviour() {
 	 	@Override
 		public void action() {
 	 		//printReport("invoked stopReporting");
@@ -149,6 +250,7 @@ public class ResourceAgent extends Agent{
 			myAgent.send(msg1);
 		}
 	};
+
 	Behaviour IfFinishedRep = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -178,7 +280,7 @@ public class ResourceAgent extends Agent{
 				firstres++;
 				}
 		}
-	};
+	};*/
 	Behaviour LoggingBehaviour = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -209,7 +311,7 @@ public class ResourceAgent extends Agent{
 				switch (getREquestStatusLabel(tmp.getStatus())) {
 					case "REQUEST_RECIEVED":
 						{	
-							printReport("REQUEST_RECIEVED");
+							 printReport("REQUEST FROM: " + tmp.getName());
 							//смотрим есть ли возможность поставить на нужную дату.
 							int posDate = fetchApprTimespan(tmp.getStart(), tmp.volume(), tmp.longevity());//possible closest date to make reserve
 							//printReport("timespan: "+posDate);
@@ -218,14 +320,16 @@ public class ResourceAgent extends Agent{
 									//мен€ем статус на REQUEST_IN_PROCESS,
 									tmp.setStatus(ResourceRequest.REQUEST_IN_PROCESS);
 									//шлЄм готовность к резерву
-									sendQueue.add(new SendingTask(recievers,"acre " + posDate));
+									sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_ACCEPTED") + " " + posDate));
+									//printReport("XX" + "RAC" + recievers.get(0));
 									//запихиваем обратно
 									requests.updateReq(tmp);
 								}
 							else//нет: 
 								{
 									//шлЄм отказ с новой датой
-									sendQueue.add(new SendingTask(recievers,"dere "+ posDate));
+								printReport("decline reserve: "+ recievers.get(0));
+									sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_DECLINED") + " " + posDate));
 								}
 						};
 					break;
@@ -238,7 +342,7 @@ public class ResourceAgent extends Agent{
 					case "REQUEST_ACCEPTED":// = 2
 					{
 						// убираем доступность ресурса.
-						printReport("REQUEST_ACCEPTED");
+						//printReport("REQUEST_ACCEPTED");
 						int i1, i2,n;
 						i1 = tmp.getStart();
 						i2 = tmp.longevity();
@@ -269,23 +373,23 @@ public class ResourceAgent extends Agent{
 									Integer.parseInt(items[2].toString()), Integer.parseInt(items[3].toString()),
 									new JobWeight(Integer.parseInt(items[4].toString()),Integer.parseInt(items[5].toString())));
 							requests.updateReq(tmp);
-							printReport(items[1].toString());
+							//TODO: uncomment printReport(items[1].toString());
 						}
 					break;
 					case "GET_RESERVED":
 						{
-							printReport("rget");
+							//printReport("rget");
 							//достаЄм по имени отправившего запрос из очереди.
 							ResourceRequest tmp = requests.getByName(msg.getSender().getName());
 							//если он досталс€, провер€ем статус. ≈сли он REQUEST_IN_PROCCESS, то мен€ем на REQUEST_ACCEPTED. » в любом случае после этого обратно пихаем.
 							if (tmp !=null) {
 								if (tmp.getStatus() == ResourceRequest.REQUEST_IN_PROCESS) {
 									tmp.setStatus(ResourceRequest.REQUEST_ACCEPTED);
-								requests.add(tmp);
+									subres(tmp.getStart(),tmp.longevity(),tmp.volume());
 								}
 							}
 							else
-								printReport("Sudden accept!");//no requests for sender to accept
+								printReport("Sudden accept! from: " + msg.getSender());//no requests for sender to accept
 						}
 					break;
 					case "GIVE_BACK_RESERVE":
@@ -308,16 +412,28 @@ public class ResourceAgent extends Agent{
 					case "START_NEGOTIATIONS":{
 						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behavious is to be added ONLY if not active
 							myAgent.addBehaviour(NextRequestProcessing);
-							Double toSend = countInitial();
-							sendmes(msg.getSender().getName(),"rrep " + toSend.toString());
+							//send back 
+							myAgent.addBehaviour(Logging);
+							Integer toSend = resVolume - requests.getMaxNeed();
+							startedNegotiations = true;
+							reportTo = msg.getSender().getName();
+							sendmes(reportTo,labelToCommand("REPORT_STATUS") + " " + toSend.toString());
 						}
 						else {
 							Double toSend = countfurther();	
-							sendmes(msg.getSender().getName(),"rrep " + toSend.toString());
+							//sendmes(msg.getSender().getName(),"rrep " + toSend.toString());
 						}
 					} break;
 					case "REPORT_REQUEST":
 						break;
+					case "SHOW_PLOT":
+					{
+						initUI();
+						frame.setVisible(true);
+						
+					}break;
+					case "UNKNOWN_MESSAGE": printReport(msg.getContent()); break;
+					
 				}
 			}
 		}
@@ -471,7 +587,7 @@ public class ResourceAgent extends Agent{
 						}
 						int prefplace = i1;
 						prefplace = fetchApprTimespan(i1,n,i2-i1); 
-						printReport("found start in: "+ prefplace);
+						//printReport("found start in: "+ prefplace);
 				}
 				else if (items[0].equals("srep")) {//report routine start
 					ACLMessage msg1 =  new ACLMessage(ACLMessage.INFORM);
@@ -482,11 +598,11 @@ public class ResourceAgent extends Agent{
 					if (lastres == 0) {//nothing to report
 						msg1.setContent("rref "+ resName);
 						myAgent.send(msg1);
-					} else { //we can report something
-						myAgent.addBehaviour(Reporting);
-						myAgent.addBehaviour(IfFinishedRep);
+					} //else { //we can report something
+						//myAgent.addBehaviour(Reporting);
+						//myAgent.addBehaviour(IfFinishedRep);
 					}
-				}
+				//}
 				else if (items[0].equals("repr")) {
 					for(ResourceReserve i: reserves) {
 						printReport(i.volume + " " + i.date + " " + i.days);
@@ -494,7 +610,7 @@ public class ResourceAgent extends Agent{
 				}
 				else if (items[0].equals("acre")){
 				//подтверждение резерва	ACcept REserve
-					printReport("Recieved acceptance of reserve");
+					//printReport("Recieved acceptance of reserve");
 				  //провер€ем наличие резерва на им€ отправител€ полученного сообщени€.
 				    String resOwner = msg.getSender().getName();//msg.getSender().getName() - им€ отправител€.
 				    int i = reservePos(resOwner);
@@ -517,7 +633,7 @@ public class ResourceAgent extends Agent{
 				}else if (items[0].equals("care")){
 					//отмена резерва CAncel REserve
 					//care VOLUME TIME
-					printReport("Recieved cancellation of reserve");
+					//printReport("Recieved cancellation of reserve");
 					String resOwner = msg.getSender().getName();//msg.getSender().getName() - им€ отправител€.
 				    int i = reservePos(resOwner);
 				    if (i != -1) {
@@ -547,9 +663,11 @@ public class ResourceAgent extends Agent{
 			resVolume = Integer.parseInt(args[1].toString());
 			int planningHorizon = Integer.parseInt(args[2].toString());
 			//printReport("horizon: "+ planningHorizon);
-			//printReport("Volume: " + resVolume);
+			printReport("Volume: " + resVolume);
+			requests = new ResReqPriorQueue(planningHorizon);
 			for (int i = 0;i < planningHorizon;i++) {
 				resavaliability.add(resVolume); 
+				extraResources.add(0);
 			}
 			//System.out.println(resavaliability.size() + " " + resavaliability.get(0) + " " + resavaliability.size());
 			

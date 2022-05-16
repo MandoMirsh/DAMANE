@@ -19,7 +19,7 @@ public class ResourceDescriptor {
 	public void removeComplete() {
 		completeFlag = false;
 	}
-	ResourceDescriptor(String resname, int date, int volume){
+	public ResourceDescriptor(String resname, int date, int volume){
 		howMuch = volume;
 		this.date = date;
 		name = resname;	

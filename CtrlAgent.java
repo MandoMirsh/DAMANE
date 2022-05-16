@@ -101,16 +101,52 @@ public class CtrlAgent extends Agent{
 				
 			}
 		});
+		btnGetJobReport.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed (ActionEvent e) {
+				//send "please, report" to the chosen job agent.
+				//the chosen resource agent's label is at combobox
+			}
+		});
+	}
+	private void startNegotiations() {
+		int size = resourseDescs.size();
+		for (int i = 0; i <size;i++) {
+			sendMes(resourseDescs.get(i).getName(),labelToCommand("START_NEG"));
+		}
+	}
+	private void setSourceReady() {
+		int rownum = 0;
+		model.setValueAt("0",rownum,1);
+		model.setValueAt("0",rownum,2);
+		model.setValueAt("SOURCE",rownum,3);
+		model.setValueAt("0",rownum,4);
+		model.setValueAt("0",rownum,5);
+	}
+	private void setSinkReady() {
+		int rownum = jobNum +1;
+		model.setValueAt(projFin.toString(), rownum, 1);
+		model.setValueAt(projFin.toString(), rownum, 2);
+		model.setValueAt("SINK",rownum,3);
+		model.setValueAt(projFin.toString(), rownum, 4);
+		model.setValueAt(projFin.toString(), rownum, 5);
+		
+	}
+	private void updateSink(Integer N) {
+		int rownum = jobNum+1;
+		model.setValueAt(N.toString(), rownum, 4);
+		model.setValueAt(N.toString(), rownum, 5);
 	}
 	private void addNewRowJobs(String name) {
 		//add new part to table
 		//jobname start finish status startnow finishnow 
 		ArrayList<String> toAdd = new ArrayList<>();
 		toAdd.add(getJobLabel(name));
-		String addStart = "0", addFinish = "0", status = "STARTED", nowStart = "0", nowFinish = "0";
+		String addStart = "INITIALIZING", addFinish = "INITIALIZING", status = "STARTED", nowStart = "INITIALIZING", nowFinish = "INITIALIZING";
 		toAdd.add(addStart); toAdd.add(addFinish); toAdd.add(status); toAdd.add(nowStart); toAdd.add(nowFinish);
 		//model.addRow(toAddToTable.toArray());
 		model.addRow(toAdd.toArray());
+		tablePlaces.put(name, model.getRowCount() - 1);
 		//add new part to combobox;
 		comboJobs.addItem(getJobLabel(name));
 	}
@@ -119,9 +155,10 @@ public class CtrlAgent extends Agent{
 		//name qstart qnow
 		ArrayList<String> toAdd = new ArrayList<>();
 		toAdd.add(getResLabel(name));
-		String addQ = "0", addQNow = "0";
+		String addQ = "INITIALIZING", addQNow = "INITIALIZING";
 		toAdd.add(addQ); toAdd.add(addQNow);
 		model_1.addRow(toAdd.toArray());
+		tablePlaces.put(name, model_1.getRowCount() - 1);
 		//add new part to combobox
 		comboResourses.addItem(getResLabel(name));
 	}
@@ -132,23 +169,25 @@ public class CtrlAgent extends Agent{
 		return name.split("@")[0];
 	}
 	String getJobByLabel(String label) {
-		return label + "@" + localPlatform;
+		return label + localPlatform;
 		
 	}
 	String getResByLabel(String label) {
-		return label + "@" + localPlatform;
+		return (label + localPlatform);
 	}
 	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
+	private Map<String, Integer> tablePlaces = new HashMap<String,Integer>();
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
 	Integer projFin = 0, jobsStarted = 0;
 	String resNames = "", resAvals = "", resAgentClass = "agentTest.ResourceAgent",
-			transmitterAgent = "agentTest.TransmitterAgent", jobAgentClass = "agentTest.TaskAgentRewrite";
+			transmitterAgent = "agentTest.TransmitterAgent", jobAgentClass = "agentTest.TaskAgent";
 	String controller, localPlatform;
 	private Map<String, Integer> places = new HashMap<String,Integer>();
 	
-	boolean init = false,showFrame = false;
+	boolean showFrame = false;
 	Integer initJobs = 0, gotMes = 0, mesToGet1, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
+	Integer JobsNeg = 0;
 	
 	private ArrayList<String> jobsParams = new ArrayList<>();
 	private ResDescStore resourseDescs = new ResDescStore();
@@ -159,22 +198,27 @@ public class CtrlAgent extends Agent{
 		outputVoc.put("ERROR_READING_FILE","errf");
 		//outputVoc.put(controller, resAvals);
 		outputVoc.put("PROJECT_START", "meaf");
-		
-		
+		outputVoc.put("PROJECT_FINISH", "meat");
+		outputVoc.put("START_NEG","strt");
 	}
 	private void initiateVocabulary() {
 		//"rrep", "RESOURSE_REPORTING", "meaf","MY_LATE_FINISH","stup", "STARTED_UP","shfr", "SHOW_FRAME" 
 		//"meat", "MY_EARLY_START", "mini", "MY_INITIALIZATION_INT", "tire","I_AM_READY", "tnre", "I_AM_NOT_READY"
 		commands.put("rrep", "RESOURSE_REPORTING");
-		commands.put("meaf", "MY_LATE_FINISH");
 		commands.put("stup", "STARTED_UP");
 		commands.put("shfr", "SHOW_FRAME");
+		commands.put("meaf", "MY_LATE_FINISH");
 		commands.put("meat", "MY_EARLY_START");
 		commands.put("mini", "MY_INITIALIZATION_INT");
 		commands.put("tire","I_AM_READY");
 		commands.put("tnre", "I_AM_NOT_READY");
+		commands.put("rare", "RESOURSE_REPORT");
+		commands.put("jore", "JOB_REPORT");
+		commands.put("mnef", "MY_NEW_LATE_FINISH");
 	}
 	String commandExplain(String command) {
+		if (commands.get(command) == null)
+			return "NO_EXPLANATION";
 		return commands.get(command);
 	}
 	String labelToCommand(String label) {
@@ -289,7 +333,6 @@ public class CtrlAgent extends Agent{
 			//return -1;
 		}
 	}
-	
 
 	
 	private ArrayList<String> lustrateMas(String[] mas, int noread){
@@ -381,7 +424,6 @@ public class CtrlAgent extends Agent{
 			printReport("init4 finished!");
 			myAgent.addBehaviour(nextMsg);
 			sendMes(controller,"stup 3");
-			
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
 		
@@ -408,8 +450,36 @@ public class CtrlAgent extends Agent{
 						projFin = newFin;
 						sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
 					}
+				} break;
+				case "JOB_REPORT"://Job reports are being taken as fast as 
+					{
+						int rowNum = tablePlaces.get(getJobLabel(items[3]));
+					
+						if (model.getValueAt(rowNum, 1) == "INITIALIZING")
+						{
+							model.setValueAt(items[1].toString(),rowNum,1);
+							model.setValueAt(items[2].toString(),rowNum,2);
+						}
+						model.setValueAt(items[1].toString(),rowNum,4);
+						model.setValueAt(items[2].toString(),rowNum,5);
+						JobsNeg++;
+						printReport("got JObReport in 4: " + rowNum + " " +items[1] + " "+ items[2]);
+						if (JobsNeg == 30)
+							{
+								setSinkReady();
+								startNegotiations();
+							}
+					}
+					break;
+				case "MY_NEW_LATE_FINISH":{
+					int newFin = Integer.parseInt(items[1].toString());
+					if (newFin>projFin) {
+						projFin = newFin;
+						sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+					}
 				}
-				}
+					break;
+				} 
 			}
 		} 
 	};
@@ -420,6 +490,7 @@ public class CtrlAgent extends Agent{
 			printReport("init3 finished!");
 			gotMes=0;
 			sendMes(controller,"stup 2");
+			setSourceReady();
 			myAgent.addBehaviour(init4);
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
@@ -451,7 +522,7 @@ public class CtrlAgent extends Agent{
 	Behaviour StopInit2 = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			//printReport("finished init2!");
+			printReport("finished init2!");
 			myAgent.removeBehaviour(init2);
 			gotMes = 0;
 			//myAgent.addBehaviour(nextMsg);
@@ -487,6 +558,7 @@ public class CtrlAgent extends Agent{
 							}
 					};
 				break;
+				
 				}
 			}
 		} 
@@ -513,15 +585,14 @@ public class CtrlAgent extends Agent{
 				String[] items = msg.getContent().split(" ");
 				switch (commandExplain(items[0])) {
 				case "MY_INITIALIZATION_INT": {
-					if (!init)
-					{	//printReport("got mini!");
+					//printReport("got mini!");
 						int inits = Integer.parseInt(items[1].toString());
 						if (inits !=0) {
 							initJobs += inits;
 							//printReport("jobnum is: "+ jobNum+ ". And jobs initiated: "+ initJobs);
-							if (initJobs == jobNum) {init = true; printReport("Initiation complete!"); myAgent.addBehaviour(StopInit1);}
+							if (initJobs == jobNum) {
+							printReport("Initiation complete!"); myAgent.addBehaviour(StopInit1);}
 						}
-					}
 					};
 				break;
 				}
@@ -589,15 +660,31 @@ public class CtrlAgent extends Agent{
 						//ќтослать новый финиш проекта управл€ющему агенту.
 						sendMes(controller,"nfin "+ newFin);
 						projFin = newFin;
+						//update sink at table
+						updateSink(newFin);
 					}
 				}; break;
+				case "MY_NEW_LATE_FINISH":{
+					int newFin = Integer.parseInt(items[1].toString());
+					if (newFin>projFin) {
+						projFin = newFin;
+						sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+					}
+				}
+					break;
 				case "I_AM_READY":{
 					jobsStarted++;
+					int rownum = tablePlaces.get(getJobLabel(items[2]));
+					model.setValueAt("PLANNED",rownum,3);
+					printReport("Job Finished: "+rownum);
 					if (jobsStarted == jobNum) {
 						sendMes(controller,"stup 4");
 					}
 				};break;
 				case "I_AM_NOT_READY":{
+					int rownum = tablePlaces.get(getJobLabel(items[2]));
+					model.setValueAt("REPLANNING",rownum,3);
+					printReport("Job not Finished anymore: "+rownum);
 					if (jobsStarted == jobNum) {
 						sendMes(controller,"stup 3");
 					}
@@ -605,6 +692,33 @@ public class CtrlAgent extends Agent{
 				};break;
 				case "SHOW_FRAME":newpos.x =Integer.parseInt(items[1]) + 6;newpos.y =Integer.parseInt(items[2]) + 28;showFrame = true; 
 				break;
+				case "RESOURSE_REPORT":
+					
+					//	смотрим отправител€ - sender.
+					int rownum = tablePlaces.get(sender);
+					if (model_1.getValueAt(rownum, 1) == "INITIALIZING")
+						model_1.setValueAt(items[1].toString(), rownum, 1);
+					model_1.setValueAt(items[1].toString(), rownum, 2);
+					// если в таблице table_1  на соответствующей строчке в графе resQ находитс€ INITIALIZING
+					//
+					//
+					break; 
+				case "JOB_REPORT":
+					int rowNum = tablePlaces.get(getJobLabel(items[3]));
+					if (model.getValueAt(rowNum, 1) == "INITIALIZING")
+					{
+						model.setValueAt(items[1].toString(),rowNum,1);
+						model.setValueAt(items[2].toString(),rowNum,2);
+					}
+					model.setValueAt(items[1].toString(),rowNum,4);
+					model.setValueAt(items[2].toString(),rowNum,5);
+					JobsNeg++;
+					//printReport("got JObReport: " + rowNum + " " +items[1] + " "+ items[2]);
+					if (JobsNeg == 30)
+					{
+						setSinkReady();
+						startNegotiations();
+					}
 				}
 				
 			}
