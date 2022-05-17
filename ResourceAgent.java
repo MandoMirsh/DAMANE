@@ -206,7 +206,7 @@ public class ResourceAgent extends Agent{
 	 */
 	private Integer fetchApprTimespan(Integer start, Integer volume, Integer longevity ) {
 		//printReport("RESAVAIL: " + resavaliability.get(1) + " VOLUME: "+ volume);
-		boolean found = false;
+		/*boolean found = false;
 		Integer shift = -1;
 		if (volume == 0)
 			return start;
@@ -220,7 +220,7 @@ public class ResourceAgent extends Agent{
 				}
 			}
 		}
-		return (start+shift);	
+		return (start+shift);	*/ return start;
 	}
 	//ChartFactory.createLineChart(myAgent.getAID().getName() + " max")
 	/*createLineChart(String title,

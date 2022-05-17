@@ -82,10 +82,7 @@ public class TaskAgent extends Agent {
 	private boolean initialFinished = false; //indicator that we have forgone initial boundaries establishment
 	private Integer gotMes1 = 0, gotMes2 = 0, mesToGet1 = 0, mesToGet2;//mesToGet1 - how many messages will I get if I go forwards the graph, mesToget2 - backwards.
 	private MessagesToSend sendQueue = new MessagesToSend();
-	private boolean workInPorgressFlag = false,//the net is initialized and this very task has every right to carry on negotiations with resources
-					jobIsPlanned = false,//this one is flag for initialization;
-					myStartIsMoved = false,//this one is flag for changes in initialization  
-					finishedNegotiations = false;
+	private boolean myStartIsMoved = false;//this one is flag for changes in initialization 
 	private Integer resAnswCount = 0;//how many Resourse agents replied so far during negotiations
 	private JobWeight myWeight;
 	private ResDescStore resourseDescs = new ResDescStore(); 
@@ -119,14 +116,15 @@ public class TaskAgent extends Agent {
 		commands.put("stup", "STARTUP_TIME");
 		commands.put("remp", "REMOVE_FROM_PREV");
 		commands.put("tire", "TASK_READY");
-		commands.put("mnef", "MY_NEW_LATE_FINISH");
-		commands.put("mnes", "MY_NEW_EARLY_START");
+		commands.put("tnre", "TASK_NOT_READY");
+		commands.put("mnef", "PREDECESSOR_MOVED");
+		commands.put("mnes", "SUCCESSOR MOVED");
 	}
 	private void outputVocabularyInit() {
 		outputVoc.put("TRY_TO_RESERVE", "rreq");
-		outputVoc.put("STARTED_UP","stup");
-		outputVoc.put("REPORT_STATUS","jore");
-		outputVoc.put("BREAK_PRECEDENCE","remp");
+		outputVoc.put("STARTED_UP", "stup");
+		outputVoc.put("REPORT_STATUS", "jore");
+		outputVoc.put("BREAK_PRECEDENCE", "remp");
 		outputVoc.put("I_AM_READY", "tire");
 		outputVoc.put("I_AM_NOT_READY", "tnre");
 		outputVoc.put("MY_NEW_LATE_FINISH", "mnef");
@@ -159,6 +157,15 @@ public class TaskAgent extends Agent {
 	private void sendReport(String agentName) {
 		sendQueue.add(new SendingTask(getTopFirst(next),labelToCommand("REPORT_STATUS") + " " + earlyStart + " " + earlyFinish+ " " + agentName));
 	}
+	private void updateLates(String successor, int newstart) {
+		mNext.put(successor,newstart);
+		ArrayList<Integer> starts = new ArrayList<Integer>(mNext.values());
+		starts.sort(Comparator.naturalOrder());
+		int l = starts.get(0);
+		starts.clear();
+		if (l!=lateFinish)
+			updateLate(l);
+	}
 	Behaviour SendingBehaviour = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -174,21 +181,21 @@ public class TaskAgent extends Agent {
 			}
 	};
 	
-	Behaviour Reporting = new OneShotBehaviour(){
+/*	Behaviour Reporting = new OneShotBehaviour(){
 		@Override
 		public void action() {
 			ArrayList <String> recievers = new ArrayList<>();
 			recievers.add(myAgent.getArguments()[0].toString());
-			String message = "rrep " + (jobIsPlanned?1:0) + " " + earlyStart + " " + earlyFinish + " "  
+			String message = "rrep " + ((agentStatus==PLANNED)?1:0) + " " + earlyStart + " " + earlyFinish + " "  
 							+ myWeight.getWeights().get(0) + " " + myWeight.getWeights().get(1); 
 				printReport(message);		
 				//sendQueue.add( new SendingTask(recievers, message));
 		}
-	};
+	};*/
 	Behaviour NegotiationStart = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			String mesPrefics = "rreq "+ earlyStart + " " + timeReq + " ", mesPostfix = " "+myWeight.getWeights().get(0) + " "+myWeight.getWeights().get(1);
+			String mesPrefics = labelToCommand("TRY_TO_RESERVE") + " " + earlyStart + " " + timeReq + " ", mesPostfix = " "+myWeight.getWeights().get(0) + " "+myWeight.getWeights().get(1);
 			resAnswCount = 0;
 			for (int i = 0;i<resourseDescs.size();i++) {
 				ArrayList <String> recievers = new ArrayList<>();
@@ -220,7 +227,7 @@ public class TaskAgent extends Agent {
 			myAgent.removeBehaviour(IfNegoiationEnded);
 			if  (resourseDescs.allSet())
 			{ //really ended:
-				if (myStartIsMoved)
+				if (agentStatus == MOVED)
 					myAgent.addBehaviour(NegotiationStart);
 				else 
 				{
@@ -234,7 +241,7 @@ public class TaskAgent extends Agent {
 						sendQueue.add(new SendingTask(recievers,"rget"));
 					//recievers.clear();
 					sendQueue.add(new SendingTask(getTopFirst(next),labelToCommand("I_AM_READY") +" 0 "+  myAgent.getAID().getName()));//tire - Task Is REady, tnre - Task Not REady
-					jobIsPlanned = true;// setting flag that the negotiations ended and task Agent is now just listening
+					agentStatus = PLANNED;// setting flag that the negotiations ended and task Agent is now just listening
 					//recievers.clear();
 				}
 			}
@@ -310,7 +317,7 @@ public class TaskAgent extends Agent {
 				}
 				switch (commandExplain(items[0].toString())){
 				//we cannot get extra
-				case "MY_EARLY_START": 
+				case "MY_EARLY_START":
 					mNext.put(name,l);
 						{ 
 							ArrayList<Integer> starts = new ArrayList<Integer>(mNext.values());
@@ -386,36 +393,40 @@ public class TaskAgent extends Agent {
 				case "REPORT_STATUS":{
 					sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent()));
 				} break;
-				case "MY_NEW_LATE_FINISH":{
+				case "PREDECESSOR_MOVED":{
 					
-					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен  
-					Integer nlf = Integer.parseInt(items[1]);
-					if (nlf > earlyStart) {
+					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен
+					if (l > earlyStart) {//we need move
 						if (agentStatus == PLANNED) {
 							releaseResourse();
 							ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
 							sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
-							
-						}
-						else
-							{
+							agentStatus = MOVED;
 							myAgent.removeBehaviour(IfNegoiationEnded);
-							}
+						}
 						// б) проапдейтить ранние старт и финиш, проверить, пересекли ли границу позднего финиша, если да - присваиваем ранние поздним, шлём нашим последователям сообщение о новом своём финише
 						
-						updateEarly(nlf);
+						updateEarly(l);
 						if (needShift()) {
 							updateLate(earlyFinish);
 							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_LATE_FINISH") + " " + lateFinish));
+							agentStatus = MOVED;
+							myAgent.removeBehaviour(IfNegoiationEnded);
 						}
 						updateWeight();
-						if (agentStatus == STARTED) {
+						if (agentStatus != PLANNED) {
 							myAgent.addBehaviour(NegotiationStart);
 							sendReport(myAgent.getAID().getName());
 						}
 					}
 					
 				} break;
+				case "SUCCESSOR MOVED":
+					// now we need to update all possible late finishes and starts.
+					updateLates(msg.getSender().getName(),l);
+					updateWeight();
+					break;
+				case "TASK_NOT_READY": sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent())); break;
 				case "TASK_READY": sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent())); break;
 				case "NO_EXPLANATION":{
 					printReport(items[0].toString() + " !!! " + msg.getSender().getName() +" !! " + msg.getContent());
@@ -546,16 +557,16 @@ public class TaskAgent extends Agent {
 				};break;
 				case "NEAR_NET_START": startAgent = true; break;
 				case "AT_NET_FINISH": finishAgent = true; break;
+				case "TASK_NOT_READY": sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent())); break;
 				case "TASK_READY": sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent())); break;
 				case "REPORT_STATUS":{
-					printReport("Report_Status!");
 					sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent()));
 				} break;
 				//case "tiko":{};break; 
 				case "NO_EXPLANATION":{
 					printReport(items[0].toString() + " !!!");
 				} break;
-				case "MY_NEW_LATE_FINISH":{
+				case "PREDECESSOR_MOVED":{
 					
 					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен  
 					Integer nlf = Integer.parseInt(items[1]);
@@ -622,7 +633,7 @@ public class TaskAgent extends Agent {
 				ResourceDescriptor tmp;
 				for (int i = 0;i<resNum;i++) {
 					tmp = new ResourceDescriptor(args[resNmStart+i].toString(), timeReq, Integer.parseInt(args[resVolStart+i].toString()));
-					printReport("res: " + tmp.getName() + " " + tmp.volume());
+					//printReport("res: " + tmp.getName() + " " + tmp.volume());
 					resourseDescs.add(tmp);
 				}
 

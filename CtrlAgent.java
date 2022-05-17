@@ -673,18 +673,27 @@ public class CtrlAgent extends Agent{
 				}
 					break;
 				case "I_AM_READY":{
-					jobsStarted++;
 					int rownum = tablePlaces.get(getJobLabel(items[2]));
-					model.setValueAt("PLANNED",rownum,3);
-					printReport("Job Finished: "+rownum);
+					if (model.getValueAt(rownum, 3)!="PLANNED")
+						{
+							jobsStarted++;
+							model.setValueAt("PLANNED",rownum,3);
+							printReport("Job Finished: "+rownum);
+						}
+						
 					if (jobsStarted == jobNum) {
 						sendMes(controller,"stup 4");
 					}
 				};break;
 				case "I_AM_NOT_READY":{
 					int rownum = tablePlaces.get(getJobLabel(items[2]));
-					model.setValueAt("REPLANNING",rownum,3);
-					printReport("Job not Finished anymore: "+rownum);
+					if (model.getValueAt(rownum, 3)=="PLANNED")
+					{
+						jobsStarted--;
+						model.setValueAt("REPLANNING",rownum,3);
+						printReport("Job not Finished anymore: "+rownum);
+					}
+					
 					if (jobsStarted == jobNum) {
 						sendMes(controller,"stup 3");
 					}
@@ -733,7 +742,10 @@ public class CtrlAgent extends Agent{
 	//породить агент конечной работы
 	//I,II.2 - передать агентам параметры работ
 	
-	
+	@Override
+	public void takeDown() {
+		frame.setVisible(false);
+	}
 	@Override
 	public void setup() {
 		setGUI();
