@@ -71,7 +71,6 @@ public class TaskAgent extends Agent {
 		return ret;
 	}
 
-	private String control = "ControlAgent", creator = "SuperControlAgent";
 	private String reportTo, projName = "";
 	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
 	private ArrayList<String> prev = new ArrayList<>(),next = new ArrayList<>();//previous and next ones
@@ -89,6 +88,7 @@ public class TaskAgent extends Agent {
 	private Integer toRecieveFinishes = 0, toRecieveStarts = 0; 
 	private boolean startAgent = false, finishAgent = false;
 	private static final Integer STARTED = 0, NEGOTIATIONS = 1, MOVED = 2, PLANNED = 3;
+	//LISTENNING_TO_INIT = , LISTENING_TO_LATES = , LISTENING_TO_EARLIES = , INITIATED = ,
 	private Integer agentStatus = STARTED;
 	private void updateWeight() {
 		myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - earlyStart);
@@ -127,8 +127,8 @@ public class TaskAgent extends Agent {
 		outputVoc.put("BREAK_PRECEDENCE", "remp");
 		outputVoc.put("I_AM_READY", "tire");
 		outputVoc.put("I_AM_NOT_READY", "tnre");
-		outputVoc.put("MY_NEW_LATE_FINISH", "mnef");
-		outputVoc.put("MY_NEW_EARLY_START", "mnes");
+		outputVoc.put("MY_NEW_EARLY_FINISH", "mnef");
+		outputVoc.put("MY_NEW_LATE_START", "mnes");
 		outputVoc.put("RELEASING_RESOURSE", "rref");
 	}
 	String commandExplain(String command) {
@@ -232,7 +232,7 @@ public class TaskAgent extends Agent {
 				else 
 				{
 					printReport("Negotiations finished!");
-					//sending confirmation to resourse agents
+					//sending confirmation to resource agents
 					ArrayList <String> recievers = new ArrayList<>();
 					for (int i = 0;i<resourseDescs.size();i++) {
 						recievers.add(resourseDescs.get(i).getName());
@@ -255,6 +255,7 @@ public class TaskAgent extends Agent {
 					toRecieveStarts = next.size();
 					SendNewFinish();
 					// активируем поведение-заглушку, которое ждёт ответа от последователей о своих ранних стартах и только потом рестартит процесс договора.
+					printReport("startCollection");
 					myAgent.addBehaviour(startCollection);
 				}
 				
@@ -383,7 +384,7 @@ public class TaskAgent extends Agent {
 					updateEarly(newStart);
 					if (needShift()) {
 						updateLate(earlyFinish);
-						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_LATE_FINISH") + " " + lateFinish));
+						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
 					}
 					updateWeight();
 					myAgent.removeBehaviour(IfNegoiationEnded);
@@ -394,9 +395,25 @@ public class TaskAgent extends Agent {
 					sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent()));
 				} break;
 				case "PREDECESSOR_MOVED":{
-					
+					printReport("agent " + msg.getSender().getLocalName() + " says that it moved.");
+					if (agentStatus == PLANNED) {
+						printReport("I was planned, but I no more am! Due to message from: " + msg.getSender().getLocalName());
+						releaseResourse();
+						ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
+						sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
+						agentStatus = MOVED;
+						myAgent.removeBehaviour(IfNegoiationEnded);
+					}
+					if (l > earlyStart) {
+						printReport("So I need to move!");
+						updateEarly(l);
+						//now we need to send our successors message that we moved:
+						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
+					}
+					/*printReport("agent " + msg.getSender().getLocalName() + " says that it moved.");
 					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен
 					if (l > earlyStart) {//we need move
+						printReport("So I need to move too!");
 						if (agentStatus == PLANNED) {
 							releaseResourse();
 							ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
@@ -409,7 +426,7 @@ public class TaskAgent extends Agent {
 						updateEarly(l);
 						if (needShift()) {
 							updateLate(earlyFinish);
-							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_LATE_FINISH") + " " + lateFinish));
+							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
 							agentStatus = MOVED;
 							myAgent.removeBehaviour(IfNegoiationEnded);
 						}
@@ -419,10 +436,13 @@ public class TaskAgent extends Agent {
 							sendReport(myAgent.getAID().getName());
 						}
 					}
-					
+					else
+						printReport("But I have no need to move!");
+					*/
 				} break;
 				case "SUCCESSOR MOVED":
 					// now we need to update all possible late finishes and starts.
+					if (toRecieveStarts >0) toRecieveStarts--;
 					updateLates(msg.getSender().getName(),l);
 					updateWeight();
 					break;
@@ -567,7 +587,22 @@ public class TaskAgent extends Agent {
 					printReport(items[0].toString() + " !!!");
 				} break;
 				case "PREDECESSOR_MOVED":{
-					
+					Integer l = Integer.parseInt(items[1]);
+					printReport("agent " + msg.getSender().getLocalName() + " says that it moved.");
+					if (agentStatus == PLANNED) {
+						printReport("I was planned, but I no more am! Due to message from: " + msg.getSender().getLocalName());
+						releaseResourse();
+						ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
+						sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
+						agentStatus = MOVED;
+						myAgent.removeBehaviour(IfNegoiationEnded);
+					}
+					if (l > earlyStart) {
+						printReport("So I need to move!");
+						updateEarly(l);
+						//now we need to send our successors message that we moved:
+						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
+					}/*
 					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен  
 					Integer nlf = Integer.parseInt(items[1]);
 					if (nlf > earlyStart) {
@@ -583,10 +618,10 @@ public class TaskAgent extends Agent {
 						updateEarly(nlf);
 						if (needShift()) {
 							updateLate(earlyFinish);
-							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_LATE_FINISH") + " " + lateFinish));
+							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
 						}
 					}
-					  
+					  */
 					
 					
 				} break;
