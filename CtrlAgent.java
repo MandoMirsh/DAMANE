@@ -175,7 +175,7 @@ public class CtrlAgent extends Agent{
 	String getResByLabel(String label) {
 		return (label + localPlatform);
 	}
-	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
+	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>(), netStatusVoc = new HashMap<String, String>();
 	private Map<String, Integer> tablePlaces = new HashMap<String,Integer>();
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
@@ -199,7 +199,14 @@ public class CtrlAgent extends Agent{
 		//outputVoc.put(controller, resAvals);
 		outputVoc.put("PROJECT_START", "meaf");
 		outputVoc.put("PROJECT_FINISH", "meat");
-		outputVoc.put("START_NEG","strt");
+		outputVoc.put("INIT_PROGRESS","strt");
+		outputVoc.put("STARTUP_NET", "stup");
+	}
+	private void netStatusVocInit() {
+		netStatusVoc.put("NET_STARTED", "0");
+		netStatusVoc.put("ENVIRONMENT_FIXED", "1");
+		netStatusVoc.put("LATE_STARTS_FIXED", "2");
+		netStatusVoc.put("EARLYFINISHES_FIXED", "3");
 	}
 	private void initiateVocabulary() {
 		//"rrep", "RESOURSE_REPORTING", "meaf","MY_LATE_FINISH","stup", "STARTED_UP","shfr", "SHOW_FRAME" 
@@ -215,6 +222,11 @@ public class CtrlAgent extends Agent{
 		commands.put("rare", "RESOURSE_REPORT");
 		commands.put("jore", "JOB_REPORT");
 		commands.put("mnef", "MY_NEW_LATE_FINISH");
+	}
+	String netStatus(String statusName) {
+		if (netStatusVoc.get(statusName) == null)
+			return "NO_EXPLANATION";
+		return netStatusVoc.get(statusName);
 	}
 	String commandExplain(String command) {
 		if (commands.get(command) == null)
@@ -413,7 +425,6 @@ public class CtrlAgent extends Agent{
 					frame.setBounds(newpos.x, newpos.y, newpos.width, newpos.height);
 				frame.setVisible(true);
 			}
-				
 		}
 	};
 	
@@ -423,7 +434,7 @@ public class CtrlAgent extends Agent{
 			myAgent.removeBehaviour(init4);
 			printReport("init4 finished!");
 			myAgent.addBehaviour(nextMsg);
-			sendMes(controller,"stup 3");
+			sendMes(controller,labelToCommand("STARTUP_NET") + " " + netStatus("EARLYFINISHES_FIXED"));
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
 		}
 		
@@ -489,7 +500,7 @@ public class CtrlAgent extends Agent{
 			myAgent.removeBehaviour(init3);
 			printReport("init3 finished!");
 			gotMes=0;
-			sendMes(controller,"stup 2");
+			sendMes(controller,labelToCommand("STARTUP_NET") + " " + netStatus("LATE_STARTS_FIXED"));
 			setSourceReady();
 			myAgent.addBehaviour(init4);
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
@@ -571,7 +582,7 @@ public class CtrlAgent extends Agent{
 			gotMes = 0;
 			//sendMes()
 			myAgent.addBehaviour(init2);
-			sendMes(controller, "stup 1");
+			sendMes(controller, "stup "+ netStatus("ENVIRONMENT_FIXED"));
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meaf 0");
 		} 
 	};
@@ -617,7 +628,7 @@ public class CtrlAgent extends Agent{
 			//setStartsAndFinishes OR init1  
 			//myAgent.addBehaviour(setStartsAndFinishes);
 			myAgent.addBehaviour(init1);
-			sendMes(controller, "stup 0");
+			sendMes(controller, "stup "+ netStatus("NET_STARTED"));
 			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mini 0");
 		} 
 	};
@@ -678,7 +689,7 @@ public class CtrlAgent extends Agent{
 						{
 							jobsStarted++;
 							model.setValueAt("PLANNED",rownum,3);
-							printReport("Job Finished: "+rownum);
+							printReport("Job Finished: "+(rownum+1));
 						}
 						
 					if (jobsStarted == jobNum) {
@@ -686,6 +697,7 @@ public class CtrlAgent extends Agent{
 					}
 				};break;
 				case "I_AM_NOT_READY":{
+					printReport("Job not ready: "+ items[2]);
 					int rownum = tablePlaces.get(getJobLabel(items[2]));
 					if (model.getValueAt(rownum, 3)=="PLANNED")
 					{
@@ -751,6 +763,8 @@ public class CtrlAgent extends Agent{
 		setGUI();
 		initiateVocabulary();
 		outputVocabularyInit();
+		netStatusVocInit();
+		
 		Object[] args = getArguments();//controllerAgentName  projecFilePath projectNumber
 		
 		controller = args[0].toString();
