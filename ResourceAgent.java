@@ -35,6 +35,7 @@ public class ResourceAgent extends Agent{
 	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
 	private Map<Integer, String> requestStatusCollection = new HashMap <Integer,String>();
 	private ArrayList<Integer> resavaliability = new ArrayList<Integer>();
+	private ArrayList<Integer> resReserved = new ArrayList<Integer>();
 	private ArrayList<Integer> extraResources = new ArrayList<>();
 	private ArrayList<ResourceReserve> reserves = new ArrayList<ResourceReserve>();
 	//private ArrayList<>
@@ -206,7 +207,7 @@ public class ResourceAgent extends Agent{
 	 */
 	private Integer fetchApprTimespan(Integer start, Integer volume, Integer longevity ) {
 		//printReport("RESAVAIL: " + resavaliability.get(1) + " VOLUME: "+ volume);
-		/*boolean found = false;
+		boolean found = false;
 		Integer shift = -1;
 		if (volume == 0)
 			return start;
@@ -220,7 +221,7 @@ public class ResourceAgent extends Agent{
 				}
 			}
 		}
-		return (start+shift);	*/ return start;
+		return (start+shift);	// return start;
 	}
 	//ChartFactory.createLineChart(myAgent.getAID().getName() + " max")
 	/*createLineChart(String title,
@@ -342,7 +343,7 @@ public class ResourceAgent extends Agent{
 					case "REQUEST_ACCEPTED":// = 2
 					{
 						// убираем доступность ресурса.
-						//printReport("REQUEST_ACCEPTED");
+						printReport("REQUEST_ACCEPTED: " + tmp.getName());
 						int i1, i2,n;
 						i1 = tmp.getStart();
 						i2 = tmp.longevity();
@@ -364,6 +365,11 @@ public class ResourceAgent extends Agent{
 			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
 			msg = myAgent.receive();
 			if (msg!=null) {
+				if (msg.getContent() ==null)
+					printReport("DAFUQ: " + msg.getSender());
+				else {
+					
+				
 				String[] items = msg.getContent().split(" ");
 				switch (CommandExplain(items[0])) {
 					case "RESOURSE_REQUIRED"://reserve recieved: start span volume mark.N1 mark.N2 
@@ -383,13 +389,15 @@ public class ResourceAgent extends Agent{
 							ResourceRequest tmp = requests.getByName(msg.getSender().getName());
 							//если он достался, проверяем статус. Если он REQUEST_IN_PROCCESS, то меняем на REQUEST_ACCEPTED. И в любом случае после этого обратно пихаем.
 							if (tmp !=null) {
+								printReport("accept from: " + msg.getSender().getName());
 								if (tmp.getStatus() == ResourceRequest.REQUEST_IN_PROCESS) {
 									tmp.setStatus(ResourceRequest.REQUEST_ACCEPTED);
 									subres(tmp.getStart(),tmp.longevity(),tmp.volume());
+									requests.updateReq(tmp);
 								}
 							}
 							else
-								printReport("Sudden accept! from: " + msg.getSender());//no requests for sender to accept
+								printReport("Sudden accept! from: " + msg.getSender().getName());//no requests for sender to accept
 						}
 					break;
 					case "GIVE_BACK_RESERVE":
@@ -435,6 +443,7 @@ public class ResourceAgent extends Agent{
 					case "UNKNOWN_MESSAGE": printReport(msg.getContent()); break;
 					
 				}
+			}
 			}
 		}
 	};
@@ -662,7 +671,7 @@ public class ResourceAgent extends Agent{
 			resName = args[0].toString();
 			resVolume = Integer.parseInt(args[1].toString());
 			int planningHorizon = Integer.parseInt(args[2].toString());
-			//printReport("horizon: "+ planningHorizon);
+			printReport("horizon: "+ planningHorizon);
 			printReport("Volume: " + resVolume);
 			requests = new ResReqPriorQueue(planningHorizon);
 			for (int i = 0;i < planningHorizon;i++) {
