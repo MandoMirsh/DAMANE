@@ -418,7 +418,7 @@ public class ResourceAgent extends Agent{
 						addres(i1,i2,n);
 					}break;
 					case "START_NEGOTIATIONS":{
-						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behavious is to be added ONLY if not active
+						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behaviour is to be added ONLY if not active
 							myAgent.addBehaviour(NextRequestProcessing);
 							//send back 
 							myAgent.addBehaviour(Logging);
