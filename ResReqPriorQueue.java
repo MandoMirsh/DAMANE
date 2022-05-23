@@ -55,12 +55,11 @@ public class ResReqPriorQueue {
 	public boolean ifInQueue(ResourceRequest a) {
 		return (posInQueue(a)>=0);
 	}
-	//
+	
 	public void updateReq(ResourceRequest a) {
 		int i = posInQueue(a);
 		if (i>=0) 
 			{
-			//
 			subResNeed(resReqs.get(i));
 			addResNeed(a);
 			

@@ -157,7 +157,7 @@ public class ResourceAgent extends Agent{
 		commands.put("rreq", "RESOURSE_REQUIRED");
 		commands.put("rget", "GET_RESERVED");
 		commands.put("rref", "GIVE_BACK_RESERVE");
-		commands.put("strn", "START_NEGOTIATIONS");
+		commands.put("strt", "START_NEGOTIATIONS");
 		commands.put("suba", "DEFICITE_EVENT");
 		commands.put("adda", "PROFICITE_EVENT");
 		commands.put("srep", "REPORT_REQUEST");
@@ -366,7 +366,7 @@ public class ResourceAgent extends Agent{
 			msg = myAgent.receive();
 			if (msg!=null) {
 				if (msg.getContent() ==null)
-					printReport("DAFUQ: " + msg.getSender() + " " + msg.getPostTimeStamp() + " " + msg.getConversationId() + " " + msg.getLanguage() );
+					printReport("DAFUQ: " + msg.getSender());
 				else {
 					
 				
