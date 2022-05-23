@@ -30,7 +30,7 @@ import org.jfree.chart.title.TextTitle;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
-public class ResourceAgent extends Agent{
+public class ResourceAgentBackup extends Agent{
 	//gets ResName, ResVolume, PlanningHorizon
 	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>();
 	private Map<Integer, String> requestStatusCollection = new HashMap <Integer,String>();
@@ -42,7 +42,7 @@ public class ResourceAgent extends Agent{
 	
 	//graph part
 	JFrame frame = new JFrame();
-	XYSeries series = new XYSeries("2022");
+	XYSeries series = new XYSeries("log");
 	private JFreeChart reportChart;
 	XYDataset dataset = new XYSeriesCollection();
 	ChartPanel chartPanel;
@@ -157,7 +157,7 @@ public class ResourceAgent extends Agent{
 		commands.put("rreq", "RESOURSE_REQUIRED");
 		commands.put("rget", "GET_RESERVED");
 		commands.put("rref", "GIVE_BACK_RESERVE");
-		commands.put("strn", "START_NEGOTIATIONS");
+		commands.put("strt", "START_NEGOTIATIONS");
 		commands.put("suba", "DEFICITE_EVENT");
 		commands.put("adda", "PROFICITE_EVENT");
 		commands.put("srep", "REPORT_REQUEST");
@@ -343,7 +343,7 @@ public class ResourceAgent extends Agent{
 					case "REQUEST_ACCEPTED":// = 2
 					{
 						// убираем доступность ресурса.
-						printReport("REQUEST_ACCEPTED: " + tmp.getName());
+						//printReport("REQUEST_ACCEPTED");
 						int i1, i2,n;
 						i1 = tmp.getStart();
 						i2 = tmp.longevity();
@@ -365,11 +365,6 @@ public class ResourceAgent extends Agent{
 			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
 			msg = myAgent.receive();
 			if (msg!=null) {
-				if (msg.getContent() ==null)
-					printReport("DAFUQ: " + msg.getSender() + " " + msg.getPostTimeStamp() + " " + msg.getConversationId() + " " + msg.getLanguage() );
-				else {
-					
-				
 				String[] items = msg.getContent().split(" ");
 				switch (CommandExplain(items[0])) {
 					case "RESOURSE_REQUIRED"://reserve recieved: start span volume mark.N1 mark.N2 
@@ -393,7 +388,6 @@ public class ResourceAgent extends Agent{
 								if (tmp.getStatus() == ResourceRequest.REQUEST_IN_PROCESS) {
 									tmp.setStatus(ResourceRequest.REQUEST_ACCEPTED);
 									subres(tmp.getStart(),tmp.longevity(),tmp.volume());
-									requests.updateReq(tmp);
 								}
 							}
 							else
@@ -418,7 +412,7 @@ public class ResourceAgent extends Agent{
 						addres(i1,i2,n);
 					}break;
 					case "START_NEGOTIATIONS":{
-						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behaviour is to be added ONLY if not active
+						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behavious is to be added ONLY if not active
 							myAgent.addBehaviour(NextRequestProcessing);
 							//send back 
 							myAgent.addBehaviour(Logging);
@@ -443,7 +437,6 @@ public class ResourceAgent extends Agent{
 					case "UNKNOWN_MESSAGE": printReport(msg.getContent()); break;
 					
 				}
-			}
 			}
 		}
 	};

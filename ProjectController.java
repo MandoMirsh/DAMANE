@@ -167,7 +167,7 @@ public class ProjectController extends Agent {
 		return jobsByLabel.get(label);
 	}
 //Agent Management part	
-	String ProjectClass = "agentTest.CtrlAgent", nameAgent = "SuperController";
+	String ProjectClass = "agentTest.ContrlAgent", nameAgent = "SuperController";
 	ContainerController containerController;
 	AgentController taskAgentController, resAgentController;
 	private MessagesToSend sendQueue = new MessagesToSend();
