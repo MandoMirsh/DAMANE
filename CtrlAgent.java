@@ -201,6 +201,7 @@ public class CtrlAgent extends Agent{
 		outputVoc.put("PROJECT_FINISH", "meat");
 		outputVoc.put("INIT_PROGRESS","strt");
 		outputVoc.put("STARTUP_NET", "stup");
+		outputVoc.put("START_NEG", "strn");
 	}
 	private void netStatusVocInit() {
 		netStatusVoc.put("NET_STARTED", "0");
