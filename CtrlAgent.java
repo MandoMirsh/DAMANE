@@ -207,6 +207,7 @@ public class CtrlAgent extends Agent{
 		netStatusVoc.put("ENVIRONMENT_FIXED", "1");
 		netStatusVoc.put("LATE_STARTS_FIXED", "2");
 		netStatusVoc.put("EARLYFINISHES_FIXED", "3");
+		netStatusVoc.put("NET_STOPPED", "4");
 	}
 	private void initiateVocabulary() {
 		//"rrep", "RESOURSE_REPORTING", "meaf","MY_LATE_FINISH","stup", "STARTED_UP","shfr", "SHOW_FRAME" 
@@ -347,6 +348,31 @@ public class CtrlAgent extends Agent{
 	}
 
 	
+	private void generateResourses(String resNames, String resAvals, String at, ResDescStore desc, ContainerController controller, ArrayList<String> rnames) {
+	//INPUT: resNames, resAvals,localPlatfrom,resourseDescs
+			String[] resNamesArr = resNames.split(" ");
+			String[] resVolArr = resAvals.split(" ");
+			int nowLen = resNamesArr.length / 2;
+			for(int i = 0;i<nowLen;i++){
+				try {
+					rnames.add(genResName(i+1,resNamesArr[i*2]));
+					AgentController resAgentController = controller.createNewAgent(rnames.get(i), resAgentClass,new String[]{genResName(i+1,resNamesArr[i*2]), resVolArr[i], horizon.toString()});
+					resAgentController.start();
+					String name = genResName(i+1,resNamesArr[i*2])+at;
+					desc.add(new ResourceDescriptor(name));
+					printReport(name+ ": generated");
+					addNewRowResourses(name);
+					//printReport(resAgentController.getName() + " created.");
+				}
+				catch(StaleProxyException e) {
+					e.printStackTrace();
+				}
+			}
+			printReport("Resource agents created");
+			
+	}	
+	
+	
 	private ArrayList<String> lustrateMas(String[] mas, int noread){
 		ArrayList<String> ret2 = lustrateMas(mas),
 							ret = new ArrayList<>();
@@ -372,6 +398,15 @@ public class CtrlAgent extends Agent{
 			s = uniteStrings(s,sArr[i].toString());
 		}
 		return s;
+	}
+	
+	//TODO: change 1 to 0
+	private void sendtoNetStart(String where, String message) {
+		sendMes(genJobName(1)+ "@" + where,message);
+	}
+	//TODO: change +2 to +3
+	private void sendToNetFinish(String where, String message) {
+		sendMes(genJobName(jobNum+2)+ "@" + where,message);
 	}
 	
 	private void sendMes(String reciever, String msg) {
@@ -435,7 +470,8 @@ public class CtrlAgent extends Agent{
 			printReport("init4 finished!");
 			myAgent.addBehaviour(nextMsg);
 			sendMes(controller,labelToCommand("STARTUP_NET") + " " + netStatus("EARLYFINISHES_FIXED"));
-			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			//sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			//разослать "INIT_PROGRESS" по агентам ресурсов
 		}
 		
 	};
@@ -459,7 +495,9 @@ public class CtrlAgent extends Agent{
 					int newFin = Integer.parseInt(items[1].toString());
 					if (newFin>projFin) {
 						projFin = newFin;
-						sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+						String local = myAgent.getAID().getName().split("@")[1].toString();
+						String message = "meat "+ projFin;
+						sendToNetFinish(local, message);
 					}
 				} break;
 				case "JOB_REPORT"://Job reports are being taken as fast as 
@@ -486,7 +524,9 @@ public class CtrlAgent extends Agent{
 					int newFin = Integer.parseInt(items[1].toString());
 					if (newFin>projFin) {
 						projFin = newFin;
-						sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+						String local = myAgent.getAID().getName().split("@")[1].toString();
+						String message = "meat "+ projFin;
+						sendToNetFinish(local, message);
 					}
 				}
 					break;
@@ -503,7 +543,9 @@ public class CtrlAgent extends Agent{
 			sendMes(controller,labelToCommand("STARTUP_NET") + " " + netStatus("LATE_STARTS_FIXED"));
 			setSourceReady();
 			myAgent.addBehaviour(init4);
-			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"stup");
+			String message = "stup";
+			String where = myAgent.getAID().getName().split("@")[1].toString();
+			sendtoNetStart(where, message);
 		}
 		
 	};
@@ -540,7 +582,9 @@ public class CtrlAgent extends Agent{
 			//sendMes()
 			myAgent.addBehaviour(init3);
 			sendMes(controller, "ffin " + projFin);
-			sendMes(genJobName(jobNum+2)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meat "+ projFin);
+			String local = myAgent.getAID().getName().split("@")[1].toString();
+			String message = "meat "+ projFin;
+			sendToNetFinish(local, message);
 		} 
 	};
 	
@@ -583,7 +627,9 @@ public class CtrlAgent extends Agent{
 			//sendMes()
 			myAgent.addBehaviour(init2);
 			sendMes(controller, "stup "+ netStatus("ENVIRONMENT_FIXED"));
-			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"meaf 0");
+			String message = "meaf 0";
+			String where = myAgent.getAID().getName().split("@")[1].toString();
+			sendtoNetStart(where, message);
 		} 
 	};
 	//mini
@@ -629,7 +675,10 @@ public class CtrlAgent extends Agent{
 			//myAgent.addBehaviour(setStartsAndFinishes);
 			myAgent.addBehaviour(init1);
 			sendMes(controller, "stup "+ netStatus("NET_STARTED"));
-			sendMes(genJobName(1)+"@" + myAgent.getAID().getName().split("@")[1].toString(),"mini 0");
+			
+			String message = "mini 0";
+			String where = myAgent.getAID().getName().split("@")[1].toString();
+			sendtoNetStart(where, message);
 		} 
 	};
 	//stup
@@ -693,7 +742,8 @@ public class CtrlAgent extends Agent{
 						}
 						
 					if (jobsStarted == jobNum) {
-						sendMes(controller,"stup 4");
+						sendMes(controller,labelToCommand("STARTUP_NET") + " " + netStatus("NET_STOPPED"));
+						//разослать по агентам ресурсов сообщение о прекращении работ.
 					}
 				};break;
 				case "I_AM_NOT_READY":{
@@ -768,29 +818,11 @@ public class CtrlAgent extends Agent{
 		Object[] args = getArguments();//controllerAgentName  projecFilePath projectNumber
 		
 		controller = args[0].toString();
-		    //File file = fileopen.getSelectedFile();
-			//System.out.println("Файл открыт");
-			/*try {
-				readPSPLibProj(fileopen.getSelectedFile(),jobsParams);
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			printReport("Starting to read files");
-			for (String s:jobsParams) {
-				printReport(s);
-			}*/
-			/*fileopen.getSelectedFile() - выбранный файл*/
-			/*FileReader c = new FileReader(fileopen.getSelectedFile());
-			char [] s = new char[20];
-			System.out.println(c.read(s));
-		/* //Попытка грохнуть всю жаду (чёт не работает, впрочем):
-		 * try {
-			this.getContainerController().getPlatformController().kill(); 
-		}
-		catch (final ControllerException e) {
-			System.out.println("Failed to end simulation.");
-		}*/  try {
+		//INPUT: args[1].toString() - filepath
+		//OUTPUT: horizon, resNum, projNum, jobNum, dueDate
+		//resNames, resAvals,
+		String filepath = args[0].toString();
+	    try {
 			String[] items;
 			Scanner scanner = new Scanner(new File(args[1].toString()));//we get FilePath from arguments
 			String line = getLineWithSkip(scanner,6);//*,basedata (4),random seed (4),*,projects (2), jobnumWithMock (3), horizon (2)
@@ -838,7 +870,8 @@ public class CtrlAgent extends Agent{
 			// ХОТЯ. . . Если вдруг какой-то шутник успеет удалить за три секунды после выбора файл, то может быть и будет исключение. Но это крайне маловерятный сценарий.
 			printReport("Can't open file at: "+args[1].toString() +  " It might be deleted or moved. Please check it's avaliability to the process.");
 			//TODO: send back error message:
-			sendMes(args[0].toString(),"errf");
+			sendMes(controller,"errf");
+			//on the outside we need to get the message to sieze all operations and 
 			e.printStackTrace() ; 
 		}
 		//создать-то создаёт агента, но проверить на корректность не могу, что очень странно.
@@ -851,52 +884,20 @@ public class CtrlAgent extends Agent{
 		*/
 		ContainerController containerController = this.getContainerController();
 		AgentController taskAgentController, resAgentController;
-		/*for (int i = 0;i<5;i++)*/
-		// ResName, ResVolume, Restype, PlanHorizon 
-		// TaskName, numSuc, numRes, Time Need SUCCESSORS, RESNAMES, RESVOLUMES
-		/*int i = 0;
-		{try {
-			taskAgentController = containerController.createNewAgent("Task" + (i+1), "AgentTest.TaskAgent",new String[]{"Task1", "0", "0","0"});
-			taskAgentController.start();
-			System.out.println("task "+ (i+1) + " created.");
-			System.out.println(taskAgentController.getName() + " created.");
-		}
-		catch(StaleProxyException e) {
-			e.printStackTrace();
-		}*/
+
 		localPlatform = "@" + getAID().getName().split("@")[1].toString();
 		//printReport("Local Platform name is :" + localPlatform);
-			
-		/*try{
-			taskAgentController.activate();	}
-		catch (StaleProxyException e) {
-			e.printStackTrace();
-		}
-		}*/
+
 		//Generating Resource Agents
-		//gets ResName, ResVolume, PlanningHorizon
-		String[] resNamesArr = resNames.split(" ");
-		String[] resVolArr = resAvals.split(" ");
+		//gets ResName, ResVolume, PlanningHorizon	
+		//INPUT: resNames, resAvals,localPlatfrom,resourseDescs
 		ArrayList <String> resAgents = new ArrayList<>();//is used to store resAgentNames
-		int nowLen = resNamesArr.length / 2;
-		for(int i = 0;i<nowLen;i++){
-			try {
-				resAgents.add(genResName(i+1,resNamesArr[i*2]));
-				resAgentController = containerController.createNewAgent(resAgents.get(i), resAgentClass,new String[]{genResName(i+1,resNamesArr[i*2]), resVolArr[i], horizon.toString()});
-				resAgentController.start();
-				String name = genResName(i+1,resNamesArr[i*2])+localPlatform;
-				resourseDescs.add(new ResourceDescriptor(name));
-				printReport(name);
-				
-				addNewRowResourses(name);
-				//printReport(resAgentController.getName() + " created.");
-			}
-			catch(StaleProxyException e) {
-				e.printStackTrace();
-			}
-		}
-		printReport("Resource agents created");
+		generateResourses(resNames,resAvals, localPlatform, resourseDescs, containerController,resAgents);
 		//Hooray! It Works!
+		//Идея про запуск истока и стока как обычных агентов, толкьо добавить агенты-прокладки.
+		//Придётся принимать не 30, а 32 признака инициализации, то есть НА 2 ПРИЗНАКА ИНИЦИАЛИЗАЦИИ ЛОВИТЬ БОЛЬШЕ В фазах с STUP и MINI, 
+		//но в фазах с настройкой ранних и поздних стартов будет значительно проще - нужно отвечать ровно на одно сообщение.
+		
 		//запускаем первый и последний агенты работ. Это источник и сток. Им соответствует класс TransmitterAgent
 
 		ArrayList<String> jobAgents = new ArrayList<>();
@@ -917,10 +918,10 @@ public class CtrlAgent extends Agent{
 			for (int i = 0;i<i2;i++){
 				params.add(jobAgents.get(Integer.parseInt(jobParams[i2+i])-1));
 			}
-			/*printReport("Source params 1:");
-			for (String s:params) {
-				printReport(s);
-			}*/
+			//printReport("Source params 1:");
+			//for (String s:params) {
+			//	printReport(s);
+			//}
 			String name = genJobName(1);
 			taskAgentController = containerController.createNewAgent(name, transmitterAgent,params.toArray(jobParams));
 			taskAgentController.start();
