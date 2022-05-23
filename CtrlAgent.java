@@ -25,6 +25,7 @@ import javax.swing.table.DefaultTableModel;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -177,6 +178,8 @@ public class CtrlAgent extends Agent{
 	}
 	private Map<String, String> commands = new HashMap<String,String>(), outputVoc = new HashMap<String, String>(), netStatusVoc = new HashMap<String, String>();
 	private Map<String, Integer> tablePlaces = new HashMap<String,Integer>();
+	ArrayList<String> jobAgents = new ArrayList<>();
+	ArrayList<String> resAgents = new ArrayList<>();
 	Integer tardcost, horizon, resNum;
 	Integer projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
 	Integer projFin = 0, jobsStarted = 0;
@@ -238,116 +241,57 @@ public class CtrlAgent extends Agent{
 	String labelToCommand(String label) {
 		return outputVoc.get(label);
 	}
-	private void PSPLibParse(File f, ArrayList<String> jobsParams) throws FileNotFoundException {
+
+	private void PSPLibParse(Integer projNum, String controller, String filepath,ArrayList<String> strParams, ArrayList<Integer> intParams, ArrayList<String> jParams )  {
 		try {
-			String[] items;
-			Scanner scanner = new Scanner(f);
+			Scanner scanner = new Scanner(new File(filepath));//we get FilePath from arguments
+			String line = getLineWithSkip(scanner,6);//*,basedata (4),random seed (4),*,projects (2), jobnumWithMock (3), horizon (2)
+			intParams.set(0, Integer.parseInt(lustrateMas(line.split(" ")).get(2)));//158
+			line = getLineWithSkip(scanner,1);//RESOURSE, renewNum (3)
+			intParams.set(1, Integer.parseInt(lustrateMas(line.split(" ")).get(3)));
+			line = getLineWithSkip(scanner,5);//nonRenewNum (3),doublyConstr (3),*,PROJECTINFO,proinfo, projinfo: jobNum (1) reldate (2) dueDate (3) tardCost (4) MPM-Time (Multi-process mode possibly, 5)
+			ArrayList<String> larr = lustrateMas(line.split(" "));
+			intParams.set(2,projNum);
+			intParams.set(3,Integer.parseInt(larr.get(1))); intParams.set(4, Integer.parseInt(larr.get(2))); 
 			
-			String line = scanner.nextLine();
-			// имя базового файла.
-			line = scanner.nextLine();
-				//System.out.println(line);
-			// сид рандома
-			line = scanner.nextLine();
-				//System.out.println(line);
-			line = scanner.nextLine();
-			//число проектов
-			line = scanner.nextLine();
-			//число работ
-			line = scanner.nextLine();
-			//горизонт планирования
-			line = scanner.nextLine();
-			int projectHorizon = readNumFromLine(line,25);
-			//System.out.println(projectHorizon); // 158
-			line = scanner.nextLine();
-			//количество возобновляемых ресурсов
-			line = scanner.nextLine();
-			int renewNum = readNumFromLine(line,22);
-			//System.out.println(renewNum); // 4
-			//количество невозобновляемых ресурсов
-			line = scanner.nextLine();	
-			int nonRenewNum = readNumFromLine(line,19);
-			//System.out.println(nonRenewNum); // 0
-			
-			// количество ресурсов с двойными огранчениями
-			line = scanner.nextLine();
-			int doubleConsRes = readNumFromLine(line,14);
-			//System.out.println(doubleConsRes); // 0
-			
-			//скипаем следующие не несущие информации для машины элементы.
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			//project properties: projectnum, 
-			//инфа проекта: номер проекта 4, количество работ 9, дата 15, дата до которой следует отработать 22, тардкост 30 , время мпм(?) 37
-			line = scanner.nextLine();
-			//ArrayList<String> larr = lustrateMas(line.split(" "));
-			//projNum = Integer.parseInt(larr.get(0)); jobNum = Integer.parseInt(larr.get(1)); relDate = Integer.parseInt(larr.get(2)); 
-			//dueDate = Integer.parseInt(larr.get(3)); tardCost = Integer.parseInt(larr.get(4)); nPMTime = Integer.parseInt(larr.get(5));	
-			// System.out.println("Proj: " + projNum + " " + jobNum + " " + relDate + " " + dueDate + " " + tardCost + " " + nPMTime); // 1 30 0 38 26 38
-			/*int il = 0;
-			for (String l: items) {
-				System.out.println(il++);
-				System.out.println(l);
-			}*/
-			 
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			
-			//отношения прецедентности: номер работы, режим, количество преемников, преемники. 
-			//TODO: циклом с 0 по N+1,где N - количество элементов в проекте.
+			intParams.set(5,Integer.parseInt(larr.get(3))); intParams.set(6,Integer.parseInt(larr.get(4))); intParams.set(7,Integer.parseInt(larr.get(5)));	
+			//Proj: 1 30 0 38 26 38	
+			//System.out.println("Proj: " + projNum + " " + jobNum + " " + relDate + " " + dueDate + " " + tardCost + " " + nPMTime);
+			line = getLineWithSkip(scanner,2);// *,PRECEDENCE RELATIONS, precedence_headlines
 			//printReport("Starting to read precedence");
-			for (int i = 0; i < jobNum+2;i++)
+			for (int i = 0; i < intParams.get(3)+2;i++)
 			{
 				line = scanner.nextLine();
 				//printReport("Read line "+ i +". Processing. . .");
 				//processing:	
-				jobsParams.add(arrToString(lustrateMas(line.split(" ")).toArray()));
-				//printReport(jobsParams.get(i));
+				jParams.add(arrToString(lustrateMas(line.split(" ")).toArray()));
 			}
-			
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			line = scanner.nextLine();
-			//jobnum,mode,time,res1,res2,res3,res4  
-			//номер работы, режим, длительность, первый_ресурс, второй_ресурс, третий_ресурс, четвёртый_ресурс
-			//TODO:циклом с 0 по N+1, где N - количество элементов в проекте.
-			for (int i = 0; i < jobNum+2;i++)
+			line = getLineWithSkip(scanner, 3);//*, REQUESTS/DURATIONS, request_headlines, _
+			for (int i = 0; i < intParams.get(3)+2;i++)
 			{
 				line = scanner.nextLine();
 				//printReport(arrToString(lustrateMas(line.split(" "), 1).toArray()));
-				String st = jobsParams.get(i),
+				String st = jParams.get(i),
 						nline = arrToString(lustrateMas(line.split(" "), 1).toArray());
-				//processing 
-				jobsParams.set(i, uniteStrings(st,nline));
+				//обработка 
+				jParams.set(i, uniteStrings(st,nline));
 				//printReport(jobsParams.get(i));
 			}
-			line = scanner.nextLine();
-
-			line = scanner.nextLine();
-			
-			//resnames
-			line = scanner.nextLine();
-			String resNames = arrToString(lustrateMas(line.split(" ")).toArray());
+			line = getLineWithSkip(scanner,2);//*,RESOURCEAVALIABILITIES,ResNames
+			strParams.set(0,arrToString(lustrateMas(line.split(" ")).toArray()));
 			//printReport(resNames);
-			//resavaliability
-			line = scanner.nextLine();
-			String resAvals = arrToString(lustrateMas(line.split(" ")).toArray());
+			line = getLineWithSkip(scanner,0);//ResAvails
+			strParams.set(1,arrToString(lustrateMas(line.split(" ")).toArray()));
 			//printReport(resAvals);
-			//last line of file.
-			line = scanner.nextLine();
-			scanner.close();
-			//return 0;
 		} catch (FileNotFoundException e) {
-			//unbelievable scenario, except for someone managed to delete file beforehand.
-			System.out.println("Не получилось открыть выбранный файл. Вероятно, кто-то умудрился его удалить. Проверьте его наличие и доступность процессу.");
-			e.printStackTrace() ;
-			//return -1;
+			// вообще-то не нужно,т.к. если APPROVE_OPTION, то там уже точно всё в порядке и файл выбран и он существует. . .
+			// ХОТЯ. . . Если вдруг какой-то шутник успеет удалить за три секунды после выбора файл, то может быть и будет исключение. Но это крайне маловерятный сценарий.
+			printReport("Can't open file at: "+filepath +  " It might be deleted or moved. Please check it's avaliability to the process.");
+			sendMes(controller,"errf");
+			//on the outside we need to get the message to sieze all operations and 
+			e.printStackTrace() ; 
 		}
 	}
-
 	
 	private void generateResourses(String resNames, String resAvals, String at, ResDescStore desc, ContainerController controller, ArrayList<String> rnames) {
 	//INPUT: resNames, resAvals,localPlatfrom,resourseDescs
@@ -822,59 +766,34 @@ public class CtrlAgent extends Agent{
 		//INPUT: args[1].toString() - filepath
 		//OUTPUT: horizon, resNum, projNum, jobNum, dueDate
 		//resNames, resAvals,
-		String filepath = args[0].toString();
-	    try {
-			String[] items;
-			Scanner scanner = new Scanner(new File(args[1].toString()));//we get FilePath from arguments
-			String line = getLineWithSkip(scanner,6);//*,basedata (4),random seed (4),*,projects (2), jobnumWithMock (3), horizon (2)
-			horizon = Integer.parseInt(lustrateMas(line.split(" ")).get(2));//158
-			line = getLineWithSkip(scanner,1);//RESOURSE, renewNum (3)
-			resNum = Integer.parseInt(lustrateMas(line.split(" ")).get(3));
-			line = getLineWithSkip(scanner,5);//nonRenewNum (3),doublyConstr (3),*,PROJECTINFO,proinfo, projinfo: jobNum (1) reldate (2) dueDate (3) tardCost (4) MPM-Time (Multi-process mode possibly, 5)
-			ArrayList<String> larr = lustrateMas(line.split(" "));
-			projNum = Integer.parseInt(args[2].toString());
-			jobNum = Integer.parseInt(larr.get(1)); relDate = Integer.parseInt(larr.get(2)); 
-			
-			dueDate = Integer.parseInt(larr.get(3)); tardCost = Integer.parseInt(larr.get(4)); nPMTime = Integer.parseInt(larr.get(5));	
-			//Proj: 1 30 0 38 26 38	
-			//System.out.println("Proj: " + projNum + " " + jobNum + " " + relDate + " " + dueDate + " " + tardCost + " " + nPMTime);
-			line = getLineWithSkip(scanner,2);// *,PRECEDENCE RELATIONS, precedence_headlines
-			//printReport("Starting to read precedence");
-			for (int i = 0; i < jobNum+2;i++)
-			{
-				line = scanner.nextLine();
-				//printReport("Read line "+ i +". Processing. . .");
-				//processing:	
-				jobsParams.add(arrToString(lustrateMas(line.split(" ")).toArray()));
-				//printReport(jobsParams.get(i));
-			}
-			line = getLineWithSkip(scanner, 3);//*, REQUESTS/DURATIONS, request_headlines, _
-			for (int i = 0; i < jobNum+2;i++)
-			{
-				line = scanner.nextLine();
-				//printReport(arrToString(lustrateMas(line.split(" "), 1).toArray()));
-				String st = jobsParams.get(i),
-						nline = arrToString(lustrateMas(line.split(" "), 1).toArray());
-				//обработка 
-				jobsParams.set(i, uniteStrings(st,nline));
-				//printReport(jobsParams.get(i));
-			}
-			line = getLineWithSkip(scanner,2);//*,RESOURCEAVALIABILITIES,ResNames
-			resNames = arrToString(lustrateMas(line.split(" ")).toArray());
-			//printReport(resNames);
-			line = getLineWithSkip(scanner,0);//ResAvails
-			resAvals = arrToString(lustrateMas(line.split(" ")).toArray());
-			//printReport(resAvals);
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			// вообще-то не нужно,т.к. если APPROVE_OPTION, то там уже точно всё в порядке и файл выбран и он существует. . .
-			// ХОТЯ. . . Если вдруг какой-то шутник успеет удалить за три секунды после выбора файл, то может быть и будет исключение. Но это крайне маловерятный сценарий.
-			printReport("Can't open file at: "+args[1].toString() +  " It might be deleted or moved. Please check it's avaliability to the process.");
-			//TODO: send back error message:
-			sendMes(controller,"errf");
-			//on the outside we need to get the message to sieze all operations and 
-			e.printStackTrace() ; 
-		}
+		String filepath = args[1].toString();
+		projNum =Integer.parseInt(args[2].toString());
+		ArrayList<String> strParams = new ArrayList<>();//resNames, resAvals
+		strParams.addAll(Arrays.asList("",""));
+		ArrayList<Integer> intParams = new ArrayList<>();//horizon, resNum, projNum, jobNum, relDate, dueDate, tardCost, nPMTime;
+		intParams.addAll(Arrays.asList(0,0,0,0,0,0,0,0,0,0));
+		//horizon == intParams[0]
+		//resNum  == intParams[1]
+		//projNum == intParams[2]
+		//jobNum == intParams[3]
+		//relDate == intParams[4]
+		//dueDate == intParams[5]
+		//tardCost == intParams[6]
+		//nPMTime == intParams[7]
+		ArrayList<String> jParams = jobsParams;
+		
+		PSPLibParse(projNum,controller, filepath, strParams, intParams, jParams );
+	    
+	    	horizon = intParams.get(0);
+	  		resNum  = intParams.get(1);
+	  		projNum = intParams.get(2);
+	  		jobNum = intParams.get(3);
+	  		relDate = intParams.get(4);
+	  		dueDate = intParams.get(5);
+	  		tardCost = intParams.get(6);
+	  		nPMTime = intParams.get(7);
+	  		resNames = strParams.get(0);
+	  		resAvals = strParams.get(1);
 		//создать-то создаёт агента, но проверить на корректность не могу, что очень странно.
 		/*Runtime runtime = Runtime.instance();
 	    Profile profile = new ProfileImpl();
@@ -901,7 +820,7 @@ public class CtrlAgent extends Agent{
 		
 		//запускаем первый и последний агенты работ. Это источник и сток. Им соответствует класс TransmitterAgent
 
-		ArrayList<String> jobAgents = new ArrayList<>();
+		//ArrayList<String> jobAgents = new ArrayList<>();
 		for (int i = 0;i<jobNum+2;i++) {
 			jobAgents.add(genJobName(i+1) + localPlatform);
 			//printReport(" " + i + " " + jobAgents.get(i));
