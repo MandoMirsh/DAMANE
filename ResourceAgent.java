@@ -366,7 +366,7 @@ public class ResourceAgent extends Agent{
 			msg = myAgent.receive();
 			if (msg!=null) {
 				if (msg.getContent() ==null)
-					printReport("DAFUQ: " + msg.getSender() + " " + msg.getPostTimeStamp() + " " + msg.getConversationId() + " " + msg.getLanguage() );
+					printReport("DAFUQ: " + msg.getSender());
 				else {
 					
 				

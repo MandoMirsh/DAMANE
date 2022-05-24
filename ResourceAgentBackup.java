@@ -329,7 +329,7 @@ public class ResourceAgentBackup extends Agent{
 							else//нет: 
 								{
 									//шлём отказ с новой датой
-								printReport("decline reserve: "+ recievers.get(0));
+									printReport("decline reserve: "+ recievers.get(0));
 									sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_DECLINED") + " " + posDate));
 								}
 						};
@@ -501,9 +501,9 @@ public class ResourceAgentBackup extends Agent{
 				    String resOwner = msg.getSender().getName();//msg.getSender().getName() - имя отправителя.
 				    int i = reservePos(resOwner);
 				    if (i ==-1) {
-				    	//нет резерва, отвечаем, что ошибка.
+			    		//нет резерва, отвечаем, что ошибка.
 				    	printReport("No reserve found!");
-				    	sendmes(msg.getSender().getName(),"nres");
+			    		sendmes(msg.getSender().getName(),"nres");
 				    }else {
 				    	//есть резерв
 				    	printReport("Reserve found, at position " + i);
