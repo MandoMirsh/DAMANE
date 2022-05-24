@@ -15,7 +15,7 @@ import java.util.Map;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 
-public class TaskAgent extends Agent {
+public class NewTaskAgent extends Agent {
 	/**
 	 * @param reciever - global JADE agent name
 	 * @param msg - message content to send
@@ -87,7 +87,7 @@ public class TaskAgent extends Agent {
 	private ResDescStore resourseDescs = new ResDescStore(); 
 	private Integer toRecieveFinishes = 0, toRecieveStarts = 0; 
 	private boolean startAgent = false, finishAgent = false;
-	private static final Integer STARTED = 0, NEGOTIATIONS = 1, MOVED = 2, PLANNED = 3;
+	private static final Integer STARTED = 0, NEGOTIATIONS = 1, MOVED = 2, NEED_PLACE = 3, PLANNED = 4; //need place - when have a need for other agents to move, so we need to halt negotiations.
 	//LISTENNING_TO_INIT = , LISTENING_TO_LATES = , LISTENING_TO_EARLIES = , INITIATED = ,
 	private Integer agentStatus = STARTED;
 	private void updateWeight() {
@@ -127,8 +127,8 @@ public class TaskAgent extends Agent {
 		outputVoc.put("BREAK_PRECEDENCE", "remp");
 		outputVoc.put("I_AM_READY", "tire");
 		outputVoc.put("I_AM_NOT_READY", "tnre");
-		outputVoc.put("MY_NEW_EARLY_FINISH", "mnef");
-		outputVoc.put("MY_NEW_LATE_START", "mnes");
+		outputVoc.put("MY_NEW_FINISH", "mnef");
+		outputVoc.put("MY_NEW_START", "mnes");
 		outputVoc.put("RELEASING_RESOURSE", "rref");
 	}
 	String commandExplain(String command) {
@@ -166,6 +166,17 @@ public class TaskAgent extends Agent {
 		if (l!=lateFinish)
 			updateLate(l);
 	}
+	private void sendNewStart() {
+		//prev
+		sendQueue.add(new SendingTask(new ArrayList<String>(next),labelToCommand("MY_NEW_START") + " " + earlyStart));
+	}
+	private void sendNewFinish() {
+		//next
+		sendQueue.add(new SendingTask(new ArrayList<String>(next),labelToCommand("MY_NEW_FINISH") + " " + earlyFinish));
+	}
+	private void reportNewPlace() {
+		//new ArrayList<String> add(reportTo)
+	}
 	Behaviour SendingBehaviour = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -192,6 +203,27 @@ public class TaskAgent extends Agent {
 				//sendQueue.add( new SendingTask(recievers, message));
 		}
 	};*/
+	Behaviour StatusChecker = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			switch (agentStatus) {
+			//private static final Integer STARTED = 0, NEGOTIATIONS = 1, MOVED = 2, PLANNED = 3;
+			case 0:{
+				
+			}
+			case 1:{
+				
+			}
+			case 2:{
+				sendNewStart();
+				sendNewFinish();
+				sendReport(myAgent.getAID().getName());
+				agentStatus = NEGOTIATIONS;
+			}
+				
+			}
+		} 
+	};
 	Behaviour NegotiationStart = new OneShotBehaviour() {
 		@Override
 		public void action() {
@@ -387,7 +419,8 @@ public class TaskAgent extends Agent {
 					updateEarly(newStart);
 					if (needShift()) {
 						updateLate(earlyFinish);
-						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
+						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_FINISH") + " " + lateFinish));
+						//status = MOVED
 					}
 					updateWeight();
 					myAgent.removeBehaviour(IfNegoiationEnded);
@@ -411,37 +444,9 @@ public class TaskAgent extends Agent {
 						printReport("So I need to move!");
 						updateEarly(l);
 						//now we need to send our successors message that we moved:
-						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
+						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_FINISH") + " " + lateFinish));
+						//agentStatus = MOVED;
 					}
-					/*printReport("agent " + msg.getSender().getLocalName() + " says that it moved.");
-					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен
-					if (l > earlyStart) {//we need move
-						printReport("So I need to move too!");
-						if (agentStatus == PLANNED) {
-							releaseResourse();
-							ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
-							sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
-							agentStatus = MOVED;
-							myAgent.removeBehaviour(IfNegoiationEnded);
-						}
-						// б) проапдейтить ранние старт и финиш, проверить, пересекли ли границу позднего финиша, если да - присваиваем ранние поздним, шлём нашим последователям сообщение о новом своём финише
-						
-						updateEarly(l);
-						if (needShift()) {
-							updateLate(earlyFinish);
-							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
-							agentStatus = MOVED;
-							myAgent.removeBehaviour(IfNegoiationEnded);
-						}
-						updateWeight();
-						if (agentStatus != PLANNED) {
-							myAgent.addBehaviour(NegotiationStart);
-							sendReport(myAgent.getAID().getName());
-						}
-					}
-					else
-						printReport("But I have no need to move!");
-					*/
 				} break;
 				case "SUCCESSOR MOVED":
 					// now we need to update all possible late finishes and starts.
@@ -481,159 +486,9 @@ public class TaskAgent extends Agent {
 	Behaviour NextMSGProcess = new CyclicBehaviour() {
 		@Override
 		public void action() {
-			//checking new messages
-			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-			msg = myAgent.receive();
-			//if there's any, process it
-			if (msg!=null) {
-				String sender = (msg.getSender().getName());
-				//printReport("Message not null!");
-				String[] items = msg.getContent().split(" ");
-				switch (commandExplain(items[0].toString())){
-				/*case "srep":printReport("srep");{String message = "";// rept START FINISH
-				ArrayList<String> send = new ArrayList<>();
-				send.add(sender);
-				sendQueue.add(new SendingTask(send,"rept "+earlyFinish));
-				} break;*/
-				case "MY_LATE_FINISH": 
-					{Integer l = Integer.parseInt(items[1]);
-						//count initial run messages
-						gotMes1++;
-						
-						if (l > earlyStart) {
-							//printReport("Early Start moved, sending messagelabelToCommands. . .");
-							updateEarly(l);
-							//myAgent.addBehaviour(SendNewFinish); 
-							//sendmes(sendTo,"meaf "+earlyFinish);
-							if (gotMes1>mesToGet1)
-								sendQueue.add(new SendingTask(next,"meaf "+earlyFinish));
-							
-						}
-						if (gotMes1==mesToGet1) {
-							sendQueue.add(new SendingTask(next,"meaf " + earlyFinish));
-						}
-						myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - earlyStart);
-					}; break;
-				case "MY_EARLY_START": //MylatEstArT
-					//printReport("gotmeat");
-				 	{int l = Integer.parseInt(items[1]);
-				 		gotMes2++;
-				 		if (l>lateFinish) {
-				 			updateLate(l);
-				 			if (gotMes2>mesToGet2)
-				 				sendQueue.add(new SendingTask(prev, "meat " + lateStart));
-				 		}
-				 		if (gotMes2==mesToGet2) {
-				 			//printReport("sentmeat");
-				 			sendQueue.add(new SendingTask(prev, "meat " + lateStart));
-				 			myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - earlyStart);
-				 			//sendQueue.add(new SendingTask(prev, "tiko "+ (earlyFinish - lateStart) + " " + (lateFinish - earlyStart)));
-				 			
-				 		}
-			 				
-				 	};break;
-				 	
-				case "MY_INITIALIZATION_INT":{// we need to start two behaviours 1) send strt to all others 2) //CORRECT
-						//Проблема - сообщения с нулями после начальной инициализации избыточны.
-						Integer sendTo1 = Integer.parseInt(items[1]);
-						//add predecessor
-						if (findPredName(sender) == -1) {
-							//printReport("new predecessor! Name's: "+ sender);
-							prev.add(sender);
-							mesToGet1++;
-						}
-						
-						//printReport("input "+ msg.getSender().getName() + " "+ msg.getContent());
-						
-						//getTopFirst, getAfterTopList
-						ArrayList<String> send1 = getTopFirst(next), send2 = getAfterTopList(next);
-						if (!initialFinished) {
-							//printReport("initiated!");
-							if (send2.size()!=0)//"mini 0" after initial transmission is unnecessary
-								sendQueue.add(new SendingTask(send2,"mini 0"));
-							initialFinished = true;//initial transmission has been made
-							sendTo1++;
-							
-							sendQueue.add(new SendingTask(send1,"mini 1"));
-						}
-						sendQueue.add(new SendingTask(send1, "mini " + sendTo1));
-						//sendQueue.add(new SendingTask(send1, msg.getContent()));
-				}
-					break;
-				case "REMOVE_FROM_PREV": {//TODO:
-
-					int i = findPredName(sender); 
-					if (i>-1) {
-						prev.remove(i);
-						mesToGet1--;
-					}
-					};break;
-				case "STARTUP_TIME":{
-					//printReport("stup");
-					//если не стартовый, то пересылаем дальше полученное сообщение
-					sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent()));
-					printReport(getTopFirst(next).get(0) + "!!");
-					sendReport(myAgent.getAID().getName());//свой 
-					if (next.size()>1)
-						sendQueue.add(new SendingTask(getAfterTopList(next), "stup"));
-					myAgent.addBehaviour(ChangeSendingBeh);
-				};break;
-				case "NEAR_NET_START": startAgent = true; break;
-				case "AT_NET_FINISH": finishAgent = true; break;
-				case "TASK_NOT_READY": sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent())); break;
-				case "TASK_READY": sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent())); break;
-				case "REPORT_STATUS":{
-					sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent()));
-				} break;
-				//case "tiko":{};break; 
-				case "NO_EXPLANATION":{
-					printReport(items[0].toString() + " !!!");
-				} break;
-				case "PREDECESSOR_MOVED":{
-					Integer l = Integer.parseInt(items[1]);
-					printReport("agent " + msg.getSender().getLocalName() + " says that it moved.");
-					if (agentStatus == PLANNED) {
-						printReport("I was planned, but I no more am! Due to message from: " + msg.getSender().getLocalName());
-						releaseResourse();
-						ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
-						sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
-						agentStatus = MOVED;
-						myAgent.removeBehaviour(IfNegoiationEnded);
-					}
-					if (l > earlyStart) {
-						printReport("So I need to move!");
-						updateEarly(l);
-						//now we need to send our successors message that we moved:
-						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
-					}/*
-					// если это число больше нашего раннего старта - нужно а) если статус агента -запланировано, то отдать ресурсы всем агентам ресурса и отослать сообщение о том, что агент снова активен  
-					Integer nlf = Integer.parseInt(items[1]);
-					if (nlf > earlyStart) {
-						if (agentStatus == PLANNED) {
-							releaseResourse();
-							ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
-							sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY")));
-							agentStatus = NEGOTIATIONS;
-						}
-						else
-							myAgent.removeBehaviour(IfNegoiationEnded);
-						// б) проапдейтить ранние старт и финиш, проверить, пересекли ли границу позднего финиша, если да - присваиваем ранние поздним, шлём нашим последователям сообщение о новом своём финише
-						updateEarly(nlf);
-						if (needShift()) {
-							updateLate(earlyFinish);
-							sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_EARLY_FINISH") + " " + lateFinish));
-						}
-					}
-					  */
-					
-					
-				} break;
-				default: printReport("else" + msg.getContent()); break;
-				}
-			
-			}
 		}
 	};
+	
 	void skipUpForTesting() {
 		addBehaviour(NxtMSGProc);
 		addBehaviour(NegotiationStart);
