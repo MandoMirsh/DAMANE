@@ -125,7 +125,7 @@ public class CtrlAgent extends Agent{
 		model.setValueAt("0",rownum,5);
 	}
 	private void setSinkReady() {
-		int rownum = jobNum +1;
+		int rownum = jobNum;
 		model.setValueAt(projFin.toString(), rownum, 1);
 		model.setValueAt(projFin.toString(), rownum, 2);
 		model.setValueAt("SINK",rownum,3);
@@ -347,11 +347,11 @@ public class CtrlAgent extends Agent{
 	
 	//TODO: change 1 to 0
 	private void sendtoNetStart(String where, String message) {
-		sendMes(genJobName(1)+ "@" + where,message);
+		sendMes(genJobName(0)+ "@" + where,message);
 	}
 	//TODO: change +2 to +3
 	private void sendToNetFinish(String where, String message) {
-		sendMes(genJobName(jobNum+2)+ "@" + where,message);
+		sendMes(genJobName(jobNum+1)+ "@" + where,message);
 	}
 	
 	private void sendMes(String reciever, String msg) {
@@ -411,6 +411,7 @@ public class CtrlAgent extends Agent{
 	Behaviour StopInit4 = new OneShotBehaviour() {
 		@Override
 		public void action() {
+			printReport("init4 finished!");
 			myAgent.removeBehaviour(init4);
 			printReport("init4 finished!");
 			myAgent.addBehaviour(nextMsg);
@@ -431,6 +432,7 @@ public class CtrlAgent extends Agent{
 				switch (commandExplain(items[0])) {
 				case "STARTED_UP": {
 							gotMes++;
+							printReport("gotmes! Now "+ gotMes + " times!");
 							if (gotMes == mesToGet2) {
 								myAgent.addBehaviour(StopInit4);
 							}	
@@ -445,7 +447,7 @@ public class CtrlAgent extends Agent{
 						sendToNetFinish(local, message);
 					}
 				} break;
-				case "JOB_REPORT"://Job reports are being taken as fast as 
+				case "JOB_REPORT"://Job reports are being taken as fast as possible
 					{
 						int rowNum = tablePlaces.get(getJobLabel(items[3]));
 					
@@ -486,7 +488,7 @@ public class CtrlAgent extends Agent{
 			printReport("init3 finished!");
 			gotMes=0;
 			sendMes(controller,labelToCommand("STARTUP_NET") + " " + netStatus("LATE_STARTS_FIXED"));
-			setSourceReady();
+			//setSourceReady();
 			myAgent.addBehaviour(init4);
 			String message = "stup";
 			String where = myAgent.getAID().getName().split("@")[1].toString();
@@ -504,11 +506,8 @@ public class CtrlAgent extends Agent{
 				String[] items = msg.getContent().split(" ");
 				switch (commandExplain(items[0])) {
 				case "MY_EARLY_START": {
-							gotMes++;
 							//printReport("Got Meat! Now "+ gotMes +" times!");
-							if (gotMes == mesToGet2) {
-								myAgent.addBehaviour(StopInit3);
-							}	
+							myAgent.addBehaviour(StopInit3);	
 					};
 				break;
 				}
@@ -827,25 +826,17 @@ public class CtrlAgent extends Agent{
 		}
 		ArrayList<String> params = new ArrayList<>();
 		String[] jobParams = {};
+		
 		//fistnum secondnum FIRSTS SECONDS
-		//source
+		//leftNetControl
 		try {
 			params.add("1");
-			jobParams = jobsParams.get(0).split(" ");
-			params.add(jobParams[2]);
+			params.add("1");
 			params.add(this.getAID().getName());
-			int i2 = Integer.parseInt(params.get(1));
-			for (int i = 0;i<i2;i++){
-				params.add(jobAgents.get(Integer.parseInt(jobParams[i2+i])-1));
-			}
-			//printReport("Source params 1:");
-			//for (String s:params) {
-			//	printReport(s);
-			//}
-			String name = genJobName(1);
+			params.add(genJobName(1) + "@" + this.getName().split("@")[1]);//source
+			String name = genJobName(0);
 			taskAgentController = containerController.createNewAgent(name, transmitterAgent,params.toArray(jobParams));
 			taskAgentController.start();
-			addNewRowJobs(name);
 			//printReport(taskAgentController.getName() + " created.");
 		}
 		catch(StaleProxyException e) {
@@ -855,7 +846,7 @@ public class CtrlAgent extends Agent{
 		
 		//printReport("started");
 		mesToGet2 =   params.size()/2;
-		for (int i = 2;i<=jobNum+1;i++) {
+		for (int i = 1;i<=jobNum+1;i++) {
 		//{int i = 2; //test line to replace prev one in testing env
 			params.clear();
 			// TaskName, numSuc, numRes,timeNeed SUCCESSORS, RESNAMES, RESVOLUMES
@@ -928,6 +919,7 @@ public class CtrlAgent extends Agent{
 		catch(StaleProxyException e) {
 			e.printStackTrace();
 		}
+		jobNum++;
 		//now we need to initialize our network and build up connections
 		addBehaviour(init0);
 		addBehaviour(ifShowFrame);
