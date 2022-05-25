@@ -666,6 +666,7 @@ public class CtrlAgent extends Agent{
 						projFin = newFin;
 						//update sink at table
 						updateSink(newFin);
+						sendToNetFinish(myAgent.getAID().getName().split("@")[1],"mnes " + newFin);
 					}
 				}; break;
 				case "MY_NEW_LATE_FINISH":{
