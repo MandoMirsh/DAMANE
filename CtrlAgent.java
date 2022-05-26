@@ -117,26 +117,28 @@ public class CtrlAgent extends Agent{
 		}
 	}
 	private void setSourceReady() {
-		int rownum = 0;
+		/*int rownum = 0;
 		model.setValueAt("0",rownum,1);
 		model.setValueAt("0",rownum,2);
 		model.setValueAt("SOURCE",rownum,3);
 		model.setValueAt("0",rownum,4);
 		model.setValueAt("0",rownum,5);
+		*/
 	}
 	private void setSinkReady() {
-		int rownum = jobNum;
+		/*int rownum = jobNum;
 		model.setValueAt(projFin.toString(), rownum, 1);
 		model.setValueAt(projFin.toString(), rownum, 2);
 		model.setValueAt("SINK",rownum,3);
 		model.setValueAt(projFin.toString(), rownum, 4);
 		model.setValueAt(projFin.toString(), rownum, 5);
-		
+		*/
 	}
 	private void updateSink(Integer N) {
-		int rownum = jobNum+1;
+		/*int rownum = jobNum+1;
 		model.setValueAt(N.toString(), rownum, 4);
 		model.setValueAt(N.toString(), rownum, 5);
+		*/
 	}
 	private void addNewRowJobs(String name) {
 		//add new part to table
@@ -433,9 +435,7 @@ public class CtrlAgent extends Agent{
 				case "STARTED_UP": {
 							gotMes++;
 							printReport("gotmes! Now "+ gotMes + " times!");
-							if (gotMes == mesToGet2) {
-								myAgent.addBehaviour(StopInit4);
-							}	
+							myAgent.addBehaviour(StopInit4);
 					};
 				break;
 				case "MY_LATE_FINISH":{//very unlikely but there can be changes in finishes before getting first stup. . .
@@ -506,7 +506,7 @@ public class CtrlAgent extends Agent{
 				String[] items = msg.getContent().split(" ");
 				switch (commandExplain(items[0])) {
 				case "MY_EARLY_START": {
-							//printReport("Got Meat! Now "+ gotMes +" times!");
+							printReport("Got Meat! Now "+ gotMes +" times!");
 							myAgent.addBehaviour(StopInit3);	
 					};
 				break;
@@ -548,13 +548,10 @@ public class CtrlAgent extends Agent{
 							if (newFin>projFin) {
 								projFin = newFin;
 							}
-							if (gotMes == mesToGet1)
-							{//Отослать новый финиш проекта управляющему агенту.
+							//Отослать новый финиш проекта управляющему агенту.
 								sendMes(controller,"nfin "+ newFin);
 								//printReport("Finished init2! with fin: "+ newFin);
 								myAgent.addBehaviour(StopInit2);
-								
-							}
 					};
 				break;
 				
@@ -821,7 +818,7 @@ public class CtrlAgent extends Agent{
 		//запускаем первый и последний агенты работ. Это источник и сток. Им соответствует класс TransmitterAgent
 
 		//ArrayList<String> jobAgents = new ArrayList<>();
-		for (int i = 0;i<jobNum+2;i++) {
+		for (int i = 0;i<jobNum+5;i++) {
 			jobAgents.add(genJobName(i+1) + localPlatform);
 			//printReport(" " + i + " " + jobAgents.get(i));
 		}
@@ -843,7 +840,6 @@ public class CtrlAgent extends Agent{
 		catch(StaleProxyException e) {
 			e.printStackTrace();
 		}
-		ArrayList<String> connectedToSink = new ArrayList<>();
 		
 		//printReport("started");
 		mesToGet2 =   params.size()/2;
@@ -856,8 +852,6 @@ public class CtrlAgent extends Agent{
 				jobParams = jobsParams.get(i-1).split(" ");
 				//jobsParams[2] - количество последующих работ.
 				int sucN = Integer.parseInt(jobParams[2]);
-				if (jobParams[sucN + 2].equals(((Integer)(jobNum+2)).toString()))
-					connectedToSink.add(genJobName(Integer.parseInt(jobParams[0])) + localPlatform);
 				params.add(this.getAID().getName());
 				params.add(genJobName(i)+localPlatform);//TaskName
 				params.add(""+sucN);//numSuc
@@ -892,35 +886,60 @@ public class CtrlAgent extends Agent{
 				}
 		}
 		
-		mesToGet1 = connectedToSink.size();
+		
+
+		printReport(jobsParams.get(jobNum+1));
+		mesToGet1 = 1;
 		//sink
 		//або пихать все возможные названия, або при генерации прочих работ фиксировать есть ли последний номер в разделённой строке. 
 		//Второе. Однозначно второе.
 		try { 
+			jobParams = jobsParams.get(jobNum+1).split(" ");
 			
 			params.clear();
-			int i2 =connectedToSink.size();
-			params.add("1");
-			params.add("" + i2);
 			params.add(this.getAID().getName());
-			
-			 for (int i = 0; i<i2;i++) {
-				 params.add(connectedToSink.get(i));
-			 }
-			/*printReport("Source params 2:");
-			for (String s:params) {
-				printReport(s);
-			} */
+			params.add(genJobName(jobNum+2)+localPlatform);
+			params.add("1");//sucNum
+			params.add(""+resNum);//numRes
+			//add timeNeed
+			int j2 = jobParams.length - 1;
+			params.add(jobParams[j2 - resNum]);
+			//add successor
+				params.add(jobAgents.get(jobNum+2));
+			//add resnames
+			for (int j = resNum;j>0;j--) {
+				params.add(resAgents.get(j-1) + localPlatform);
+			}
+			//add resvolumes (none are needed, that's sink) 
+			for (int j =0;j<resNum;j++) {
+				params.add("0");
+			}
 			String name = genJobName(jobNum+2);
-			taskAgentController = containerController.createNewAgent(name, transmitterAgent,params.toArray(jobParams));
+			taskAgentController = containerController.createNewAgent(name, jobAgentClass,params.toArray(jobParams));
 			taskAgentController.start();
 			addNewRowJobs(name);
+		}
+		catch(StaleProxyException e) {
+			e.printStackTrace();
+		}
+		//right net control
+		try {
+			String[] JParms = {} ;
+			ArrayList<String> parms = new ArrayList<>();
+			parms.add("1");
+			parms.add("1");
+			parms.add(this.getAID().getName());
+			parms.add(genJobName(jobNum +2) + "@" + this.getName().split("@")[1]);//source
+			String name = genJobName(jobNum + 3);
+			taskAgentController = containerController.createNewAgent(name, transmitterAgent,parms.toArray(JParms));
+			taskAgentController.start();
 			//printReport(taskAgentController.getName() + " created.");
 		}
 		catch(StaleProxyException e) {
 			e.printStackTrace();
 		}
-		jobNum++;
+
+		jobNum+=2;
 		//now we need to initialize our network and build up connections
 		addBehaviour(init0);
 		addBehaviour(ifShowFrame);
