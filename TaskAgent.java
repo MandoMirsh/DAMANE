@@ -487,7 +487,7 @@ public class TaskAgent extends Agent {
 			//if there's any, process it
 			if (msg!=null) {
 				String sender = (msg.getSender().getName());
-				//printReport("Message not null!");
+				//printReport("Message not null! " + msg.getContent());
 				String[] items = msg.getContent().split(" ");
 				switch (commandExplain(items[0].toString())){
 				/*case "srep":printReport("srep");{String message = "";// rept START FINISH
@@ -521,7 +521,9 @@ public class TaskAgent extends Agent {
 				 		if (l>lateFinish) {
 				 			updateLate(l);
 				 			if (gotMes2>mesToGet2)
+				 			{
 				 				sendQueue.add(new SendingTask(prev, "meat " + lateStart));
+				 			}
 				 		}
 				 		if (gotMes2==mesToGet2) {
 				 			//printReport("sentmeat");
@@ -553,8 +555,6 @@ public class TaskAgent extends Agent {
 								sendQueue.add(new SendingTask(send2,"mini 0"));
 							initialFinished = true;//initial transmission has been made
 							sendTo1++;
-							
-							sendQueue.add(new SendingTask(send1,"mini 1"));
 						}
 						sendQueue.add(new SendingTask(send1, "mini " + sendTo1));
 						//sendQueue.add(new SendingTask(send1, msg.getContent()));
@@ -569,7 +569,7 @@ public class TaskAgent extends Agent {
 					}
 					};break;
 				case "STARTUP_TIME":{
-					//printReport("stup");
+					printReport("stup");
 					//если не стартовый, то пересылаем дальше полученное сообщение
 					sendQueue.add(new SendingTask(getTopFirst(next), msg.getContent()));
 					printReport(getTopFirst(next).get(0) + "!!");
