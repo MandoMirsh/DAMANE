@@ -15,7 +15,7 @@ import java.util.Map;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 
-public class TaskAgent extends Agent {
+public class NewTaskAgent extends Agent {
 	/**
 	 * @param reciever - global JADE agent name
 	 * @param msg - message content to send
