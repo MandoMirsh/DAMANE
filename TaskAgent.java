@@ -15,7 +15,7 @@ import java.util.Map;
 import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 
-public class NewTaskAgent extends Agent {
+public class TaskAgent extends Agent {
 	/**
 	 * @param reciever - global JADE agent name
 	 * @param msg - message content to send
@@ -87,11 +87,11 @@ public class NewTaskAgent extends Agent {
 	private JobWeight myWeight;
 	private Integer toRecieveFinishes = 0, toRecieveStarts = 0; 
 	private boolean startAgent = false, finishAgent = false;
-	private static final Integer STARTED = 0, NEGOTIATIONS = 1, MOVED = 2, PLANNED = 3;
+	private static final Integer STARTED = 0, NEGOTIATIONS = 1, MOVED = 2, WAIT_RECONF = 3, PLANNED = 4;
 	//LISTENNING_TO_INIT = , LISTENING_TO_LATES = , LISTENING_TO_EARLIES = , INITIATED = ,
 	private Integer agentStatus = STARTED;
 	private void updateWeight() {
-		myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - earlyStart);
+		myWeight = new JobWeight(earlyFinish - lateStart,lateFinish - newstart);
 	}
 	private void updateEarly(int newStart) {
 		earlyStart = newStart;
@@ -129,7 +129,12 @@ public class NewTaskAgent extends Agent {
 		outputVoc.put("I_AM_NOT_READY", "tnre");
 		outputVoc.put("MY_NEW_FINISH", "mnef");
 		outputVoc.put("MY_NEW_LATE_START", "mnes");
+		outputVoc.put("MY_NEW_LATE_START", "mnes");
 		outputVoc.put("RELEASING_RESOURSE", "rref");
+		outputVoc.put("MY_NEW_START","meat");
+		outputVoc.put("GET_RESERVED", "rget");
+		outputVoc.put("MY_NEW_FINISH", "meaf");
+		outputVoc.put("ABORT_NEGOTIATIONS","abre");
 	}
 	String commandExplain(String command) {
 		if (commands.get(command) == null)
@@ -170,7 +175,7 @@ public class NewTaskAgent extends Agent {
 	//NEGOTIATIONS PART
 	private ResDescStore resourseDescs = new ResDescStore(); 
 	private static final Integer NEG_NONE = 0, NEG_START = 1, NEG_RUN = 2, NEG_RESET = 3, NEG_WAIT = 4, NEG_NEXT = 5, NEG_STOP = 6;
-	Integer resourcePointer = 0, negotiationStatus = NEG_NONE;
+	Integer resourcePointer = 0, negotiationStatus = NEG_NONE, closeMore = -1;
 	
 	private void releaseResourse() {
 		//достаём 
@@ -207,14 +212,16 @@ public class NewTaskAgent extends Agent {
 	Behaviour ResetNegotiation = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			for (int i = resourcePointer - 1;i>=0;i++) {
+			for (int i = resourcePointer - 1;i>=0;i--) {
 				//ВОЗВРАТ РЕСУРСОВ.
+				printReport("Trying to give back resources at the " + i + "'th position");
 				 releaseResource(resourseDescs.get(i));
 			}
 			updateEarly(newstart);
 			//SEND BACK info on new start Это следует делать при помощи:
-			
+			ArrayList<String> recievers1 = new ArrayList<>(mNext.keySet());
 			//SEND FORWARD  new finish info.
+			SendNewFinish();
 			resourcePointer = 0;
 			if (earlyFinish<=lateFinish)
 				negotiationStatus = NEG_START;
@@ -243,47 +250,20 @@ public class NewTaskAgent extends Agent {
 			}
 			if (negotiationStatus == NEG_RESET) {
 				myAgent.addBehaviour(ResetNegotiation);
+				negotiationStatus = NEG_RUN;
 			}
 			
 		}
 	};
-	Behaviour NegotiationStop = new OneShotBehaviour() {
+	Behaviour ClosedDoors = new CyclicBehaviour() {
 		@Override
 		public void action() {
-			if  (resourseDescs.allSet())
-			{ //really ended:
-				if (agentStatus == MOVED)
-				{
-					printReport("I am moved, so I need to reinitiate negotiations");
-				}
-				else 
-				{
-					printReport("Negotiations finished!");
-					//sending confirmation to resource agents
-					ArrayList <String> recievers = new ArrayList<>();
-					for (int i = 0;i<resourseDescs.size();i++) {
-						recievers.add(resourseDescs.get(i).getName());
-					}
-					if (recievers.size()>0)
-						sendQueue.add(new SendingTask(recievers,"rget"));
-					//recievers.clear();
-					agentStatus = PLANNED;// setting flag that the negotiations ended and task Agent is now just listening
-					//recievers.clear();
-				}
-			}
-			else
-			{
-				//сменить свой ранний старт и ранний финиш
-				updateEarly(resourseDescs.maxDate());
-				if (needShift())//если ранний финиш >позднего старта,  
-				{
-					//извещаем последователей о своём раннем финише
-					toRecieveStarts = next.size();
-					SendNewFinish();
-					// активируем поведение-заглушку, которое ждёт ответа от последователей о своих ранних стартах и только потом рестартит процесс договора.
-					printReport("startCollection");
-					//myAgent.addBehaviour(startCollection);
-				}
+			if (closeMore>0) {
+				closeMore--;
+			}	
+			if (closeMore==0) {
+				closeMore--;
+				myAgent.addBehaviour(NxtMSGProc);
 			}
 		}
 	};
@@ -296,12 +276,27 @@ public class NewTaskAgent extends Agent {
 		@Override
 		public void action() {
 			if (agentStatus == MOVED) {
+				myAgent.removeBehaviour(NxtMSGProc);
+				//printReport("I moved, so I inform everyone!");
 				//inform about our current status
 				ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
 				sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
-				//make sure we reset negotiations
-				negotiationStatus = NEG_RESET;
-				agentStatus = NEGOTIATIONS;
+				//send to the next ones, that we are moved.
+				ArrayList<String> recievers2 = new ArrayList<>(next);
+				sendQueue.add(new SendingTask(recievers2,labelToCommand("MY_NEW_FINISH") +" "+  earlyFinish));
+				//send to the previous ones
+				ArrayList<String> recievers3 = new ArrayList<>(prev);
+				sendQueue.add(new SendingTask(recievers3,labelToCommand("MY_NEW_START") +" " + newstart));
+				//We need to make sure we are satisfied with our position, so:
+				ArrayList<String> recievers4 = new ArrayList<>();
+				recievers4.add(resourseDescs.get(resourcePointer).getName());
+				sendQueue.add(new SendingTask(recievers3,labelToCommand("ABORT_NEGOTIATIONS")));
+				
+				closeMore = 600;
+				
+				negotiationStatus = WAIT_RECONF;
+				
+				
 			}
 			if (agentStatus == NEGOTIATIONS) {
 				if (negotiationStatus == NEG_STOP) {
@@ -310,6 +305,23 @@ public class NewTaskAgent extends Agent {
 					sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_READY") +" 0 "+  myAgent.getAID().getName()));
 					agentStatus = PLANNED;
 				}
+			}
+			if (agentStatus == WAIT_RECONF) {
+				if (myWeight.getWeights().get(1) >= 0){
+					printReport("Reinitiating negotiations with "+ myWeight.getWeights().get(1));
+					//make sure we reset negotiations
+					negotiationStatus = NEG_RESET;
+					agentStatus = NEGOTIATIONS;
+				}
+				/*else
+					{
+						try {
+							Thread.sleep(1000);
+							}
+						catch (InterruptedException ex) {
+							Thread.currentThread().interrupt();
+						}
+					}*/
 			}
 			//PLANNED && RESET -> NEGOTIATIONS + ResetNegotiation
 		}
@@ -341,25 +353,32 @@ public class NewTaskAgent extends Agent {
 				 				updateLate(l);
 				 				updateWeight();
 				 				//if we are in the middle of negotiations, we need to reset them, our parameters were changed otherwise we have no need in resetting
-				 				 if (agentStatus == NEGOTIATIONS) agentStatus = MOVED;
-				 			}	
+				 				printReport("moved by next one: " + msg.getSender().getName()); 
+				 				if (agentStatus != PLANNED) agentStatus = MOVED;
+				 			}
 				 	}; break;
 				 	
 					case "MY_LATE_FINISH":{
 						mPrev.put(name,l);
-							if (l > earlyStart) {
+							if (l > newstart) {
 								newstart = l;
+								printReport("moved ny previous one: " + msg.getSender().getName());
 								agentStatus = MOVED;
+								updateWeight(); 
 							}		
 					}; break;
 				//negotiations income handler (both acre and dere)
 					case "RESERVE_ACCEPTED":{
 						printReport("acre!");
+						ArrayList<String> replyTo = new ArrayList<>();
+						replyTo.add(msg.getSender().getName());
+						sendQueue.add(new SendingTask(replyTo, labelToCommand("GET_RESERVED")));
 						negotiationStatus = NEG_NEXT;
 					};break;
 					case "RESERVE_DECLINED":{
 						printReport(msg.getContent());
 						newstart = Integer.parseInt(items[1]);
+						printReport("need to move to: "+ newstart);
 						updateEarly(newstart);
 						agentStatus = MOVED;
 						updateWeight();
@@ -384,10 +403,9 @@ public class NewTaskAgent extends Agent {
 		public void action() {
 			myAgent.removeBehaviour(NextMSGProcess);
 			myAgent.addBehaviour(NxtMSGProc);
-			//TODO:uncomment there to test.
 			myAgent.addBehaviour(Negotiation);
 			myAgent.addBehaviour(AgentStatusProcessing);
-
+			myAgent.addBehaviour(ClosedDoors);
 			for (String s:next) {
 			mNext.put(s, lateFinish);	
 			}
@@ -396,6 +414,7 @@ public class NewTaskAgent extends Agent {
 			}
 			agentStatus = NEGOTIATIONS;
 			negotiationStatus = NEG_START;
+			newstart = earlyStart;
 		}
 	};
 	//MSG Process atStartUp
@@ -481,7 +500,7 @@ public class NewTaskAgent extends Agent {
 						//sendQueue.add(new SendingTask(send1, msg.getContent()));
 				}
 					break;
-				case "REMOVE_FROM_PREV": {//TODO:
+				case "REMOVE_FROM_PREV": {
 
 					int i = findPredName(sender); 
 					if (i>-1) {
@@ -509,25 +528,6 @@ public class NewTaskAgent extends Agent {
 				//case "tiko":{};break; 
 				case "NO_EXPLANATION":{
 					printReport(items[0].toString() + " !!!");
-				} break;
-				case "PREDECESSOR_MOVED":{
-					Integer l = Integer.parseInt(items[1]);
-					printReport("agent " + msg.getSender().getLocalName() + " says that it moved.");
-					if (agentStatus == PLANNED) {
-						printReport("I was planned, but I no more am! Due to message from: " + msg.getSender().getLocalName());
-						releaseResourse();
-						ArrayList<String> recievers = new ArrayList<>(getTopFirst(next));
-						sendQueue.add(new SendingTask(recievers,labelToCommand("I_AM_NOT_READY") + " 0 " + myAgent.getAID().getName()));
-						agentStatus = MOVED;
-					}
-					if (l > earlyStart) {
-						printReport("So I need to move!");
-						updateEarly(l);
-						//now we need to send our successors message that we moved:
-						sendQueue.add(new SendingTask(next,labelToCommand("MY_NEW_FINISH") + " " + lateFinish));
-					}
-					
-					
 				} break;
 				default: printReport("else" + msg.getContent()); break;
 				}

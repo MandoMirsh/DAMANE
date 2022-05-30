@@ -163,6 +163,7 @@ public class ResourceAgent extends Agent{
 		commands.put("srep", "REPORT_REQUEST");
 		//commands.put("shpl", "SHOW_PLOT");
 		commands.put("srep", "SHOW_PLOT");
+		commands.put("abre", "ABORT_NEGOTIATIONS");
 	};
 	String getREquestStatusLabel(Integer n) {
 		return requestStatusCollection.get(n);
@@ -197,6 +198,15 @@ public class ResourceAgent extends Agent{
 		return -1;
 		
 	}
+	
+	
+	private static final Integer INIT = 0, LOOKUP_NEXT = 1, NEGOTIATION = 2, STOPPING = 3, STOP = 4;
+	private static final Integer NEG_STOP = 0, NEG_START = 1, NEG_RESPONCE_WAIT = 2, NEG_WAIT = 3; 
+	private String negNow = "";
+	
+	private Integer negotiationStatus, agentStatus, proposal; 
+	ArrayList<String> requestQueue = new ArrayList<>();
+	Map<String, Integer> starts = new HashMap<String, Integer>(), longevities = new HashMap<String, Integer>(), volumes = new HashMap<String, Integer>();
 	//search for closest timespan with resources avaliable
 	/**
 	 * 
@@ -239,49 +249,74 @@ public class ResourceAgent extends Agent{
 		
 		return s;
 	}
-/*	Behaviour stopReporting = new OneShotBehaviour() {
-	 	@Override
-		public void action() {
-	 		//printReport("invoked stopReporting");
-			myAgent.removeBehaviour(IfFinishedRep);
-			//send message that report is finished
-			ACLMessage msg1 = new ACLMessage(ACLMessage.INFORM);
-			msg1.addReceiver(new AID(reportTo, AID.ISGUID));
-			msg1.setContent("rres "+ resName + " " + resVolume);
-			myAgent.send(msg1);
-		}
-	};
-
-	Behaviour IfFinishedRep = new CyclicBehaviour() {
+	Behaviour Negotiation = new OneShotBehaviour() {
 		@Override
 		public void action() {
-			//printReport("invoked IfFinishedRep");
-			//check if report is finished
-			if (firstres == lastres) {
-				myAgent.removeBehaviour(Reporting);
-				myAgent.addBehaviour(stopReporting);
-				firstres = 0;
+			//if we don't have needed time
+			ArrayList<String> recievers = new ArrayList<>();
+			recievers.add(negNow);
+			int volume = volumes.get(negNow), start = starts.get(negNow), longevity = longevities.get(negNow);
+			//Checking if we can give enough resources on time.
+			proposal = fetchApprTimespan(start, volume, longevity);
+			printReport("trying to give proposal " + proposal + " to: "+ negNow);
+			//send proposal. after to-do: remade this into one proposal, so it can be accepted or declined 
+			if (proposal == start) {
+			//if we can=> sending: ok, we can do this, please confirm.
+				printReport("And it's a match, so we wait to give resources");
+				negotiationStatus = NEG_RESPONCE_WAIT;
+				sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_ACCEPTED") + " " + proposal));
+			}
+			else
+			{
+				printReport("It's no match, so we must lookup someone else. . .");
+				negotiationStatus = NEG_STOP;
+				sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_DECLINED") + " " + proposal));
 			}
 		}
 	};
-	Behaviour Reporting = new CyclicBehaviour() {
+	Behaviour NegotiationControl = new CyclicBehaviour() {
 		@Override
 		public void action() {
-			//printReport("invoked Reporting");
-			if (firstres<lastres) {
-				//printReport("invoked message assembling");
-				//report next piece
-				ACLMessage mes = new ACLMessage(ACLMessage.INFORM);
-				//printReport("message creation was successful");
-				mes.addReceiver(new AID(reportTo, AID.ISGUID));
-				//printReport("message start");
-				//form message content: resname daynum volume	
-				mes.setContent(resName + " " + (firstres) + " " + resavaliability.get(firstres));
-				myAgent.send(mes);
-				firstres++;
-				}
+			if (negotiationStatus == NEG_START) {
+				negotiationStatus = NEG_WAIT;
+				myAgent.addBehaviour(Negotiation);
+				
+			}
+			if (negotiationStatus == NEG_RESPONCE_WAIT) {
+				//if needed
+			}
 		}
-	};*/
+	};
+	
+	Behaviour StatusControl = new CyclicBehaviour() {
+		@Override
+		public void action() {
+			if (agentStatus == LOOKUP_NEXT) {
+				if (requestQueue.size()>0)
+				{
+					//we get next one request and process it.
+					agentStatus = NEGOTIATION;
+					negotiationStatus = NEG_START;
+					negNow = requestQueue.get(0);
+					requestQueue.remove(0);
+				}
+				if (agentStatus == NEGOTIATION) {
+					if (negotiationStatus == NEG_STOP) {
+						printReport("Negotiations with " + negNow + " were stopped. fetching another one!");
+						//Failed negotiations, try next
+						agentStatus = LOOKUP_NEXT;
+					}
+				}
+				if (agentStatus == STOPPING) {
+					//finish everything
+					//finish logging
+					
+					
+					agentStatus = STOP;
+				}
+			}
+		}
+	};
 	Behaviour LoggingBehaviour = new CyclicBehaviour() {
 		@Override
 		public void action() {
@@ -296,68 +331,10 @@ public class ResourceAgent extends Agent{
 				if (next.size()!=0) {
 					String sendTo = next.get(1),
 							message = next.get(0);	
-					//printReport("output "+ sendTo + " "+ message);
+					printReport("output "+ message + " to: " + sendTo);
 					sendmes(sendTo,message);
 				}
 			}
-	};
-	
-	Behaviour NextRequestProcessing = new CyclicBehaviour() {
-		@Override
-		public void action() {
-			ResourceRequest tmp = requests.getNext();
-			if (tmp!=null) { 
-				ArrayList<String> recievers = new ArrayList<>();
-				recievers.add(tmp.getName());
-				switch (getREquestStatusLabel(tmp.getStatus())) {
-					case "REQUEST_RECIEVED":
-						{	
-							 printReport("REQUEST FROM: " + tmp.getName());
-							//смотрим есть ли возможность поставить на нужную дату.
-							int posDate = fetchApprTimespan(tmp.getStart(), tmp.volume(), tmp.longevity());//possible closest date to make reserve
-							//printReport("timespan: "+posDate);
-							if ( posDate == tmp.getStart())
-								{//да:
-									//меняем статус на REQUEST_IN_PROCESS,
-									tmp.setStatus(ResourceRequest.REQUEST_IN_PROCESS);
-									//шлём готовность к резерву
-									sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_ACCEPTED") + " " + posDate));
-									//printReport("XX" + "RAC" + recievers.get(0));
-									//запихиваем обратно
-									requests.updateReq(tmp);
-								}
-							else//нет: 
-								{
-									//шлём отказ с новой датой
-								printReport("decline reserve: "+ recievers.get(0));
-									sendQueue.add(new SendingTask(recievers,labelToCommand("RESERVE_DECLINED") + " " + posDate));
-								}
-						};
-					break;
-					case "REQUEST_IN_PROCESS":// = 1
-						{
-							//printReport("REQUEST_IN_PROCESS");
-							requests.updateReq(tmp);
-						}
-					break;
-					case "REQUEST_ACCEPTED":// = 2
-					{
-						// убираем доступность ресурса.
-						printReport("REQUEST_ACCEPTED: " + tmp.getName());
-						int i1, i2,n;
-						i1 = tmp.getStart();
-						i2 = tmp.longevity();
-						n = tmp.volume();
-						for (int i = 0 ;i<=i2;i++) {
-							int a = resavaliability.get(i+i1);
-							//printReport("there's " + a + " at the " + i+i1 + " place");
-							resavaliability.set(i+i1, a-n);
-						}
-					}
-				break;
-				}
-			}
-		}
 	};
 	Behaviour NextMessage = new CyclicBehaviour() {
 		@Override
@@ -365,45 +342,45 @@ public class ResourceAgent extends Agent{
 			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
 			msg = myAgent.receive();
 			if (msg!=null) {
-				if (msg.getContent() ==null)
-					printReport("DAFUQ: " + msg.getSender());
+				if (msg.getContent() == null)
+					printReport("Unexpected message, sent by: " + msg.getSender());
 				else {
+					//GOT
+					printReport("got " + msg.getContent());
 					
-				
 				String[] items = msg.getContent().split(" ");
 				switch (CommandExplain(items[0])) {
-					case "RESOURSE_REQUIRED"://reserve recieved: start span volume mark.N1 mark.N2 
+					case "RESOURSE_REQUIRED"://DONE
+						//reserve recieved: start span volume mark.N1 mark.N2 
 						{
-							//printReport("rreq");
-							ResourceRequest tmp = new ResourceRequest(msg.getSender().getName(),Integer.parseInt(items[1].toString()) ,
-									Integer.parseInt(items[2].toString()), Integer.parseInt(items[3].toString()),
-									new JobWeight(Integer.parseInt(items[4].toString()),Integer.parseInt(items[5].toString())));
-							requests.updateReq(tmp);
-							//TODO: uncomment printReport(items[1].toString());
+							printReport("rreq from: "+ msg.getSender().getName());
+							String sender = msg.getSender().getName();
+							Integer start = Integer.parseInt(items[1].toString()), span = Integer.parseInt(items[2].toString()), volume = Integer.parseInt(items[3].toString());
+							requestQueue.add(msg.getSender().getName());
+							requestQueue.sort(null);
+							starts.put(sender, start);
+							volumes.put(sender, volume);
+							longevities.put(sender, span);
+							//requests.updateReq(sender);
 						}
 					break;
 					case "GET_RESERVED":
 						{
 							//printReport("rget");
-							//достаём по имени отправившего запрос из очереди.
-							ResourceRequest tmp = requests.getByName(msg.getSender().getName());
-							//если он достался, проверяем статус. Если он REQUEST_IN_PROCCESS, то меняем на REQUEST_ACCEPTED. И в любом случае после этого обратно пихаем.
-							if (tmp !=null) {
-								printReport("accept from: " + msg.getSender().getName());
-								if (tmp.getStatus() == ResourceRequest.REQUEST_IN_PROCESS) {
-									tmp.setStatus(ResourceRequest.REQUEST_ACCEPTED);
-									subres(tmp.getStart(),tmp.longevity(),tmp.volume());
-									requests.updateReq(tmp);
-								}
+							//сверяем имя с текущим
+							String sender = msg.getSender().getName();
+							if (sender == negNow) {
+								printReport("Resources taken, time to move on");
+								subres(starts.get(sender),longevities.get(sender),volumes.get(sender));
+								agentStatus = LOOKUP_NEXT;
 							}
 							else
-								printReport("Sudden accept! from: " + msg.getSender().getName());//no requests for sender to accept
+								printReport(sender = " why, do u need extra resources?");
 						}
 					break;
 					case "GIVE_BACK_RESERVE":
 					{
 						//смотрим, сколько ресурсов освободилось, на какой срок и подкидываем их в топку
-						
 						//rref DATE, T, N
 						
 						int i1, i2,n;
@@ -418,20 +395,26 @@ public class ResourceAgent extends Agent{
 						addres(i1,i2,n);
 					}break;
 					case "START_NEGOTIATIONS":{
-						if (!startedNegotiations) {//negotiations to start. must work only time. Either way behaviour is to be added ONLY if not active
-							myAgent.addBehaviour(NextRequestProcessing);
-							//send back 
-							myAgent.addBehaviour(Logging);
-							Integer toSend = resVolume - requests.getMaxNeed();
-							startedNegotiations = true;
-							reportTo = msg.getSender().getName();
-							sendmes(reportTo,labelToCommand("REPORT_STATUS") + " " + toSend.toString());
+						printReport("STARTING. . .");
+						agentStatus = LOOKUP_NEXT;
+						//myAgent.addBehaviour(Logging);
+						myAgent.addBehaviour(NegotiationControl);
+						myAgent.addBehaviour(StatusControl);
+					} break;
+					case "ABORT_NEGOTIATIONS":{
+						String sender = msg.getSender().getName();
+						printReport("abort from: " + sender);
+						if (sender == negNow) {
+							agentStatus = LOOKUP_NEXT;
 						}
 						else {
-							Double toSend = countfurther();	
-							//sendmes(msg.getSender().getName(),"rrep " + toSend.toString());
+							int pos = requestQueue.indexOf(sender);
+							if (pos>-1) {
+								requestQueue.remove(pos);
+							}
 						}
-					} break;
+					}
+						break;
 					case "REPORT_REQUEST":
 						break;
 					case "SHOW_PLOT":
@@ -440,217 +423,15 @@ public class ResourceAgent extends Agent{
 						frame.setVisible(true);
 						
 					}break;
+					case "STOP": {
+						agentStatus = STOPPING;
+						myAgent.removeBehaviour(Logging);
+						
+					}break;
 					case "UNKNOWN_MESSAGE": printReport(msg.getContent()); break;
 					
 				}
 			}
-			}
-		}
-	};
-	Behaviour NextMSGProcess = new CyclicBehaviour() {
-		@Override
-		public void action() {
-			//checking new messages
-			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-			msg = myAgent.receive();
-			//if there's any, process it
-			if (msg!=null) {
-				String[] items = msg.getContent().split(" ");
-				//case statements after switch (switchdef) are equvalent of switchdef.equal() so this should suffice.
-				/*switch (items[0]){
-				 * case "suba": {// try to get resource: " subtract avaliability"
-					int i1 = Integer.parseInt(items[1])-1,
-						i2 = Integer.parseInt(items[2])-1,
-						n  = Integer.parseInt(items[3]);
-					System.out.println("Reserve requested from " + i1 + " till " + i2);
-					//lets see if there is needed 
-					//int prefplace = i1;
-					int i3 = fetchApprTimespan(i1,n,i2-i1);
-					i2 += i3 - i1;
-					i1 = i3;
-					//System.out.println("Trying to reserve from " + (i1+1) + " till " + (i2+1));
-					for (int i = i1 ;i<=i2;i++) {
-						int a = resavaliability.get(i);
-						//printReport("there's " + a + " at the " + i + " place");
-						resavaliability.remove(i);
-						resavaliability.add(i, a - n);
-						//if (i!=0) System.out.print(resavaliability.get(i-1) +" ");
-						//System.out.println(resavaliability.get(i) + " " + resavaliability.get(i+1));
-					}
-					//create reserve	
-					reserves.add(new ResourceReserve(msg.getSender().getName(),i1, n, i2-i1+1));
-					System.out.println(msg.getSender());
-					if (lastres<i2) {
-						lastres = i2;
-					}//
-					ACLMessage mes =  new ACLMessage(ACLMessage.INFORM);
-					mes.setContent("resq " + i1 + " " + i2);
-					mes.addReceiver(new AID(msg.getSender().getName(),AID.ISGUID));
-					myAgent.send(mes);
-				}; break; 
-				 * case "adda":{
-					int i1 = Integer.parseInt(items[1])-1,
-						i2 = Integer.parseInt(items[2])-1,
-						n  = Integer.parseInt(items[3]);
-					System.out.println("Trying to collect to " + i1 + " till " + i2);
-					for (int i = i1 ;i<=i2;i++) {
-						int a = resavaliability.get(i);
-						printReport("there's " + a + " at the " + i + " place");
-						resavaliability.remove(i);
-						resavaliability.add(i, a + n);
-						if (i!=0) System.out.print(resavaliability.get(i-1) +" ");
-						System.out.println(resavaliability.get(i) + " " + resavaliability.get(i+1));
-					}; break; // give resource back: "add avaliability"
-				 * case "acre": {
-				//подтверждение резерва	ACcept REserve
-					printReport("Recieved acceptance of reserve");
-				  //проверяем наличие резерва на имя отправителя полученного сообщения.
-				    String resOwner = msg.getSender().getName();//msg.getSender().getName() - имя отправителя.
-				    int i = reservePos(resOwner);
-				    if (i ==-1) {
-				    	//нет резерва, отвечаем, что ошибка.
-				    	printReport("No reserve found!");
-				    	sendmes(msg.getSender().getName(),"nres");
-				    }else {
-				    	//есть резерв
-				    	printReport("Reserve found, at position " + i);
-				    	//шлём сообщение о подтверждённом выделении
-				    	
-				    	//убираем резерв
-				    	reserves.remove(i);
-				    	// для удаления по индексу необходимо, чтобы индекс был int, не Integer, т.к. Integer наследуется от object и вызовется remove(object) вместо remove(int) 
-				    	
-				    }; break; // reservation confirmation : "accept reserve";
-				 * case "srep":{//report routine start
-					ACLMessage msg1 =  new ACLMessage(ACLMessage.INFORM);
-					reportTo = msg.getSender().getName();
-					msg1.addReceiver(new AID(reportTo, AID.ISGUID));
-					msg1.setContent("rres "+ resName + " " + resVolume);
-					myAgent.send(msg1);
-					if (lastres == 0) {//nothing to report
-						msg1.setContent("rref "+ resName);
-						myAgent.send(msg1);
-					} else { //we can report something
-						myAgent.addBehaviour(Reporting);
-						myAgent.addBehaviour(IfFinishedRep);
-					}
-				}; break; // start routine to send report back to message sender. Only one report at a time is supported!
-				case
-				 * }
-				 * */ 
-				if (items[0].equals("suba")) {// try to get resource: " subtract avaliability"
-					int i1 = Integer.parseInt(items[1])-1,
-						i2 = Integer.parseInt(items[2])-1,
-						n  = Integer.parseInt(items[3]);
-					System.out.println("Reserve requested from " + i1 + " till " + i2);
-					//lets see if there is needed 
-					//int prefplace = i1;
-					int i3 = fetchApprTimespan(i1,n,i2-i1);
-					i2 += i3 - i1;
-					i1 = i3;
-					System.out.println("Trying to reserve from " + (i1+1) + " till " + (i2+1));
-					for (int i = i1 ;i<=i2;i++) {
-						int a = resavaliability.get(i);
-						printReport("there's " + a + " at the " + i + " place");
-						resavaliability.remove(i);
-						resavaliability.add(i, a - n);
-						//if (i!=0) System.out.print(resavaliability.get(i-1) +" ");
-						//System.out.println(resavaliability.get(i) + " " + resavaliability.get(i+1));
-					}
-					//create reserve	
-					reserves.add(new ResourceReserve(msg.getSender().getName(),i1, n, i2-i1+1));
-					System.out.println(msg.getSender());
-					if (lastres<i2) {
-						lastres = i2;
-					}//
-					ACLMessage mes =  new ACLMessage(ACLMessage.INFORM);
-					mes.setContent("resq " + i1 + " " + i2);
-					mes.addReceiver(new AID(msg.getSender().getName(),AID.ISGUID));
-					myAgent.send(mes);
-				} else if (items[0].equals("adda")){
-					int i1 = Integer.parseInt(items[1])-1,
-						i2 = Integer.parseInt(items[2])-1,
-						n  = Integer.parseInt(items[3]);
-					System.out.println("Trying to collect to " + i1 + " till " + i2);
-					for (int i = i1 ;i<=i2;i++) {
-						int a = resavaliability.get(i);
-						printReport("there's " + a + " at the " + i + " place");
-						resavaliability.remove(i);
-						resavaliability.add(i, a + n);
-						if (i!=0) System.out.print(resavaliability.get(i-1) +" ");
-						System.out.println(resavaliability.get(i) + " " + resavaliability.get(i+1));
-					}
-					
-				} 
-				else if (items[0].equals("sbta")) {
-					int i1 = Integer.parseInt(items[1])-1,
-							i2 = Integer.parseInt(items[2])-1,
-							n  = Integer.parseInt(items[3]);
-						System.out.println("Trying to reserve from " + i1 + " till " + i2);
-						//lets see if there is needed 
-						if (n > resVolume) {
-							ACLMessage mes3 = new ACLMessage(ACLMessage.INFORM);
-							mes3.addReceiver(msg.getSender());
-							mes3.setContent("cant");
-							myAgent.send(mes3);
-						}
-						int prefplace = i1;
-						prefplace = fetchApprTimespan(i1,n,i2-i1); 
-						//printReport("found start in: "+ prefplace);
-				}
-				else if (items[0].equals("srep")) {//report routine start
-					ACLMessage msg1 =  new ACLMessage(ACLMessage.INFORM);
-					reportTo = msg.getSender().getName();
-					msg1.addReceiver(new AID(reportTo, AID.ISGUID));
-					msg1.setContent("rres "+ resName + " " + resVolume);
-					myAgent.send(msg1);
-					if (lastres == 0) {//nothing to report
-						msg1.setContent("rref "+ resName);
-						myAgent.send(msg1);
-					} //else { //we can report something
-						//myAgent.addBehaviour(Reporting);
-						//myAgent.addBehaviour(IfFinishedRep);
-					}
-				//}
-				else if (items[0].equals("repr")) {
-					for(ResourceReserve i: reserves) {
-						printReport(i.volume + " " + i.date + " " + i.days);
-					}
-				}
-				else if (items[0].equals("acre")){
-				//подтверждение резерва	ACcept REserve
-					//printReport("Recieved acceptance of reserve");
-				  //проверяем наличие резерва на имя отправителя полученного сообщения.
-				    String resOwner = msg.getSender().getName();//msg.getSender().getName() - имя отправителя.
-				    int i = reservePos(resOwner);
-				    if (i ==-1) {
-				    	//нет резерва, отвечаем, что ошибка.
-				    	printReport("No reserve found!");
-				    	sendmes(msg.getSender().getName(),"nres");
-				    }else {
-				    	//есть резерв
-				    	printReport("Reserve found, at position " + i);
-				    	//шлём сообщение о подтверждённом выделении
-				    	
-				    	//убираем резерв
-				    	reserves.remove(i);
-				    	// для удаления по индексу необходимо, чтобы индекс был int, не Integer, т.к. Integer наследуется от object и вызовется remove(object) вместо remove(int) 
-				    	
-				    }
-				    
-				    
-				}else if (items[0].equals("care")){
-					//отмена резерва CAncel REserve
-					//care VOLUME TIME
-					//printReport("Recieved cancellation of reserve");
-					String resOwner = msg.getSender().getName();//msg.getSender().getName() - имя отправителя.
-				    int i = reservePos(resOwner);
-				    if (i != -1) {
-				    	
-				    	//add resource from reserve
-				    	reserves.remove(i);
-				    }
-				}
 			}
 		}
 	};
